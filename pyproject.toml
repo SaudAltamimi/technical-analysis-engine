@@ -1,0 +1,92 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "technical-analysis"
+version = "0.1.0"
+description = "Enhanced technical analysis signal generator with built-in indicators and backtesting capabilities."
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+
+dependencies = [
+    # Core data processing
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "python-dateutil>=2.8.2",
+    "pytz>=2023.3",
+    # Data fetching
+    "yfinance>=0.2.58",
+    "httpx>=0.24.0",
+    # Configuration and utilities
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "PyYAML>=6.0",
+    "python-dotenv>=1.0.0",
+    "cachetools>=5.5.2",
+    # FastAPI and API dependencies
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    # Visualization and backtesting
+    "vectorbt>=0.25.0",
+]
+
+[project.scripts]
+technical-analysis = "technical_analysis.cli:main"
+technical-analysis-api = "app.main:app"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "ruff>=0.1.0",
+    "black>=23.0.0",
+    "mypy>=1.0.0",
+    "jupyter>=1.0.0",
+]
+
+backtesting = [
+    "vectorbt>=0.25.0",
+    "plotly>=5.0.0",
+    "matplotlib>=3.5.0",
+    "scipy>=1.9.0",
+]
+
+api = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+]
+
+all = [
+    "technical-analysis[dev,backtesting,api]"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/yourusername/technical-analysis"
+"Documentation" = "https://github.com/yourusername/technical-analysis/blob/main/README.md"
+"Repository" = "https://github.com/yourusername/technical-analysis"
+"Bug Tracker" = "https://github.com/yourusername/technical-analysis/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.black]
+target-version = ["py311"]
+line-length = 88
+
+[tool.mypy]
+python_version = "3.11"
+strict = true

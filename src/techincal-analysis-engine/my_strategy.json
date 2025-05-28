@@ -1,0 +1,33 @@
+{
+  "name": "My EMA Strategy",
+  "description": "EMA crossover strategy (12/26)",
+  "indicators": [
+    {
+      "name": "ema_fast",
+      "type": "EMA",
+      "params": {}
+    },
+    {
+      "name": "ema_slow",
+      "type": "EMA",
+      "params": {}
+    }
+  ],
+  "crossover_rules": [
+    {
+      "name": "ema_entry",
+      "fast_indicator": "ema_fast",
+      "slow_indicator": "ema_slow",
+      "direction": "above",
+      "signal_type": "entry"
+    },
+    {
+      "name": "ema_exit",
+      "fast_indicator": "ema_fast",
+      "slow_indicator": "ema_slow",
+      "direction": "below",
+      "signal_type": "exit"
+    }
+  ],
+  "threshold_rules": []
+}
