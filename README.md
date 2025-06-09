@@ -4,6 +4,17 @@ A professional-grade FastAPI server providing real-time technical analysis for s
 
 ## 🚀 Quick Start
 
+```bash
+# Complete setup and launch
+make setup              # Setup core engine + API
+make setup-streamlit    # Setup Streamlit app  
+make dev               # Start both API and Streamlit
+
+# Access applications
+open http://localhost:8000/docs    # API documentation
+open http://localhost:8501         # Streamlit interface
+```
+
 ### 🏗️ Separated Architecture
 This project has **clean separation of concerns**:
 - **Core Engine + API**: Technical analysis engine with FastAPI (uv environment)
@@ -16,7 +27,6 @@ make setup
 
 # Start API server
 make api
-# or manually: uvicorn src.app.main:app --host 0.0.0.0 --port 8000
 ```
 
 ### 2. Setup Streamlit Frontend (Optional, Separate)
@@ -72,7 +82,7 @@ Perfect for iOS trading apps:
 
 ```swift
 // Example iOS integration
-let api = TechnicalAnalysisAPI(baseURL: "http://localhost:8001")
+let api = TechnicalAnalysisAPI(baseURL: "http://localhost:8000")
 
 // Get EMA analysis
 let analysis = try await api.createEMAStrategy(
@@ -93,18 +103,18 @@ for indicator in analysis.indicators {
 ### API Endpoints
 ```bash
 # Health check
-curl http://localhost:8001/health
+curl http://localhost:8000/health
 
 # Validate ticker
-curl http://localhost:8001/tickers/AAPL/validate
+curl http://localhost:8000/tickers/AAPL/validate
 
 # EMA crossover analysis (quick strategy)
-curl -X POST http://localhost:8001/strategies/ema-crossover \
+curl -X POST http://localhost:8000/strategies/ema-crossover \
   -H "Content-Type: application/json" \
   -d '{"symbol": "AAPL", "period": "1y", "fast_period": 12, "slow_period": 26}'
 
 # Create and analyze a CUSTOM dynamic strategy
-curl -X POST http://localhost:8001/strategies/custom \
+curl -X POST http://localhost:8000/strategies/custom \
   -H "Content-Type: application/json" \
   -d '{
     "name": "MyCustomStrategy",
@@ -131,7 +141,7 @@ curl -X POST http://localhost:8001/strategies/custom \
 import requests
 import json
 
-API_BASE_URL = "http://localhost:8001"
+API_BASE_URL = "http://localhost:8000"
 
 # Example: Create and analyze a CUSTOM dynamic strategy
 custom_strategy_payload = {
@@ -373,8 +383,8 @@ pip install -e .[api]
 Then run the API:
 
 ```bash
-cd src/app
-uvicorn main:app --reload
+make api
+# or manually: cd src/app && uv run uvicorn main:app --reload
 ```
 
 ### With Streamlit Support
@@ -476,8 +486,8 @@ print(f"Total return: {backtest.backtest_performance['total_return']:.2%}")
 Start the API server:
 
 ```bash
-cd src/app
-uvicorn main:app --reload
+make api
+# or manually: cd src/app && uv run uvicorn main:app --reload
 ```
 
 Then use the API endpoints:
@@ -490,8 +500,8 @@ Then use the API endpoints:
 ### Streamlit Usage
 
 ```bash
-cd src/streamlit_app
-streamlit run streamlit_app.py
+make streamlit
+# or manually: cd src/streamlit_app && streamlit run streamlit_app.py
 ```
 
 Access the web interface at `http://localhost:8501`
@@ -532,10 +542,11 @@ Access the web interface at `http://localhost:8501`
 
 ```bash
 # Install with dev dependencies
-pip install -e .[dev]
+uv sync --extra dev
 
 # Run tests
-pytest
+make test
+# or manually: cd tests && python run_tests.py
 ```
 
 ## License
