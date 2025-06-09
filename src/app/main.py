@@ -9,11 +9,12 @@ from fastapi.responses import JSONResponse
 from datetime import datetime
 import traceback
 from typing import List, Dict, Any
-import sys
-import os
-
-# Add the technical analysis engine to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'techincal-analysis-engine'))
+# Import from the technical analysis engine package
+from technical_analysis_engine import (
+    TechnicalAnalysisEngine,
+    YahooFinanceService, TickerRequest, DateRangeRequest, PeriodEnum, IntervalEnum,
+    IndicatorType, get_ticker_config
+)
 
 from models import (
     APIResponse, ErrorResponse, HealthResponse, StatusEnum,
@@ -21,10 +22,6 @@ from models import (
     DynamicIndicatorDefinition, DynamicStrategyDefinition
 )
 from services import TechnicalAnalysisService, StrategyBuilderService
-from data_service import YahooFinanceService, TickerRequest, DateRangeRequest, PeriodEnum, IntervalEnum
-from config import StrategyDefinition
-from ta_types import IndicatorType
-from ticker_config import get_ticker_config
 
 # Create FastAPI app
 app = FastAPI(

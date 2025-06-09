@@ -5,24 +5,25 @@ Service layer for technical analysis API
 import pandas as pd
 from datetime import datetime
 from typing import List, Dict, Any
-import sys
-import os
 
-# Add the technical analysis engine to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'techincal-analysis-engine'))
-
-from strategy import StrategyEngine
-from builders import StrategyBuilder
-from config import StrategyDefinition, IndicatorDefinition, CrossoverRule, ThresholdRule, EMAConfig, RSIConfig, MACDConfig
-from ta_types import IndicatorType, SignalType, CrossoverDirection, ThresholdCondition
+# Import from the technical analysis engine package
+from technical_analysis_engine import (
+    StrategyEngine, YahooFinanceService, StrategyDefinition, IndicatorDefinition,
+    IndicatorType, SignalType, CrossoverDirection, ThresholdCondition, 
+    TickerRequest, DateRangeRequest, PeriodEnum
+)
+from technical_analysis_engine.config import (
+    CrossoverRule, ThresholdRule, EMAConfig, RSIConfig, MACDConfig
+)
+from technical_analysis_engine.data_service import DataFetchResult
+from technical_analysis_engine.builders import StrategyBuilder
 
 from models import (
     PriceDataPoint, PricePoint, IndicatorResult, IndicatorValuePoint, SignalPoint, 
     AnalysisResult, BacktestResult, EMAStrategyRequest, MultiEMAStrategyRequest,
     RSIStrategyRequest, BacktestParams, TickerInfo, DynamicStrategyDefinition, 
-    TickerRequest, DateRangeRequest, ComprehensiveBacktestResult
+    ComprehensiveBacktestResult
 )
-from data_service import YahooFinanceService, TickerRequest, DateRangeRequest, PeriodEnum
 
 
 class TechnicalAnalysisService:
@@ -147,7 +148,6 @@ class TechnicalAnalysisService:
         })
         
         # Create mock data info for compatibility
-        from data_service import DataFetchResult
         data_info = DataFetchResult(
             symbol="CUSTOM",
             data_points=len(price_series),

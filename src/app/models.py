@@ -8,25 +8,15 @@ from pydantic import BaseModel, Field
 from enum import Enum
 
 # Import existing models from technical analysis engine
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'techincal-analysis-engine'))
-
-from ta_types import IndicatorType, SignalType, CrossoverDirection, ThresholdCondition
-from config import (
-    IndicatorDefinition, 
-    CrossoverRule, 
-    ThresholdRule, 
-    StrategyDefinition,
-    EMAConfig,
-    SMAConfig,
-    RSIConfig,
-    MACDConfig,
-    IndicatorParams
+from technical_analysis_engine import (
+    IndicatorType, SignalType, CrossoverDirection, ThresholdCondition,
+    IndicatorDefinition, StrategyDefinition,
+    PeriodEnum, IntervalEnum, TickerRequest, DateRangeRequest
 )
-
-# Import data service models
-from data_service import PeriodEnum, IntervalEnum, TickerRequest, DateRangeRequest, DataFetchResult
+from technical_analysis_engine.config import (
+    CrossoverRule, ThresholdRule, EMAConfig, SMAConfig, RSIConfig, MACDConfig, IndicatorParams
+)
+from technical_analysis_engine.data_service import DataFetchResult
 
 
 class StatusEnum(str, Enum):

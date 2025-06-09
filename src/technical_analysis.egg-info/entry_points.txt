@@ -1,3 +1,0 @@
-[console_scripts]
-technical-analysis = technical_analysis.cli:main
-technical-analysis-api = app.main:app

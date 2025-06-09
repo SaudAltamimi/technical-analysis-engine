@@ -59,12 +59,12 @@ FastAPI application with:
 - Backtesting capabilities
 - iOS-optimized JSON responses
 
-### Examples & Documentation (`/examples/`)
-Comprehensive examples organized by use case:
-- **API Integration** - Complete integration examples
-- **iOS Development** - Swift templates and documentation  
-- **Visualizations** - Interactive charts and analysis
-- **Documentation** - API reference and guides
+### Documentation (`/docs/`)
+Comprehensive documentation and examples:
+- **Architecture** - System design and component relationships
+- **API Documentation** - Complete endpoint reference and usage examples
+- **Directory Structure** - Project organization guide
+- **Examples** - Usage examples available through the Streamlit application
 
 ## 📱 iOS Integration
 
@@ -226,81 +226,318 @@ Recent GOOGL analysis (1 year):
 ## 🎯 Use Cases
 
 ### For iOS Developers
-1. Review `/examples/documentation/ios_api_documentation.md`
-2. Use `/examples/ios_development/ios_integration.swift` template
-3. Test with examples in `/examples/api_integration/` and `/examples/api_strategy_examples/`
+1. Review API documentation in `/docs/README_API.md`
+2. Use the FastAPI interactive docs at `http://localhost:8000/docs`
+3. Test with the Streamlit application to see examples in action
 
 ### For API Testing
-1. Run examples in `/examples/api_strategy_examples/` to see dynamic strategy creation and visualization.
-2. View generated charts in `/examples/api_strategy_examples/`.
-3. Check analysis summaries.
+1. Use the Streamlit application to create and test dynamic strategies interactively
+2. View generated charts and analysis through the web interface
+3. Check analysis summaries via the API endpoints
 
 ### For Technical Analysis
-1. Study `/examples/engine_examples/real_data_example.py`.
-2. Explore direct engine usage patterns.
-3. Compare API vs direct integration approaches.
-4. **Leverage the API for flexible, on-the-fly strategy experimentation.**
+1. Use the core engine directly for standalone analysis
+2. Explore usage patterns through unit tests in `/tests/`
+3. Compare API vs direct integration approaches
+4. **Leverage the API for flexible, on-the-fly strategy experimentation**
 
 ## 📂 Project Structure
 
 ```
 technical-analysis-prod/
-├── src/                        # FastAPI application
-│   ├── app/                   # API endpoints and services
-│   └── techincal-analysis-engine/  # Core analysis engine
-├── examples/                   # Organized examples and documentation
-│   ├── api_integration/       # General API usage examples
-│   ├── api_strategy_examples/ # Examples demonstrating dynamic strategy creation via API
-│   ├── ios_development/       # Swift templates
-│   ├── visualizations/        # Generated charts (could consolidate into api_strategy_examples)
-│   ├── documentation/         # API reference
-│   ├── engine_examples/       # Direct engine usage
-│   └── analysis_results/      # Example outputs
-├── start_api.py               # Quick server start
-├── test_api.py               # Comprehensive tests
-└── README_API.md             # Detailed API documentation
+├── src/                        # Source code
+│   ├── technical_analysis_engine/  # Core analysis engine (main package)
+│   ├── app/                   # FastAPI application (optional)
+│   └── streamlit_app/         # Streamlit interface (optional)
+├── tests/                      # Test suite with examples
+├── docs/                       # Documentation
+├── pyproject.toml              # Package configuration  
+├── Makefile                   # Development automation
+└── README.md                  # This file
 ```
 
 ## 🔧 Development
 
+### Setup and Run
+```bash
+# Setup core engine + API
+make setup
+
+# Setup Streamlit app (separate)
+make setup-streamlit
+
+# Start both API and Streamlit
+make dev
+
+# Or start individually
+make api        # FastAPI server
+make streamlit  # Streamlit app
+```
+
 ### Run Tests
 ```bash
-python test_api.py
+make test
+# or
+cd tests && python run_tests.py
 ```
 
-### Generate Visualizations
+### Project Commands
 ```bash
-python examples/api_integration/enhanced_api_visualization.py
-```
-
-### iOS Development
-```bash
-# Start API server
-python start_api.py
-
-# Review iOS documentation
-open examples/documentation/ios_api_documentation.md
-
-# Use Swift template
-open examples/ios_development/ios_integration.swift
+make help       # Show all available commands
+make status     # Check service status
+make clean      # Clean temporary files
 ```
 
 ## 📖 Documentation
 
-- **API Reference**: `/examples/documentation/ios_api_documentation.md`
-- **Examples Guide**: `/examples/README.md`
-- **Detailed API Docs**: `README_API.md`
-- **Interactive Docs**: `http://localhost:8001/docs` (when server running)
-- **Dynamic Strategy Examples**: `/examples/api_strategy_examples/`
+- **API Reference**: `/docs/README_API.md`
+- **Architecture**: `/docs/ARCHITECTURE.md`  
+- **Directory Structure**: `/docs/DIRECTORY_STRUCTURE.md`
+- **Interactive Docs**: `http://localhost:8000/docs` (when API server running)
+- **Test Examples**: Available through the Streamlit application
 
 ## 🎉 Ready for Production
 
-This API is production-ready with:
-- Real market data integration
+This project provides:
+- Self-contained technical analysis engine
+- Optional FastAPI backend for API integration
+- Optional Streamlit frontend for interactive use
+- Comprehensive test suite
+- Clean dependency architecture
 - Professional technical indicators
-- Comprehensive error handling
-- iOS-optimized responses
-- Interactive visualizations
-- Complete documentation
 
-Perfect for building professional trading applications! 📱💹 
+Perfect for building custom trading applications! 📱💹 
+
+# Technical Analysis Engine
+
+Self-contained technical analysis engine with VectorBT integration, data fetching capabilities, and optional API/Streamlit interfaces.
+
+## Installation
+
+### Core Engine Only (Standalone)
+
+Install just the technical analysis engine:
+
+```bash
+pip install -e .
+```
+
+This gives you access to the core engine:
+
+```python
+from technical_analysis_engine import TechnicalAnalysisEngine
+
+# Create engine
+engine = TechnicalAnalysisEngine()
+
+# Validate a symbol
+is_valid = engine.validate_symbol("AAPL")
+
+# Run complete analysis
+result = engine.analyze_symbol(
+    symbol="AAPL",
+    strategy_config={
+        "indicators": [{"name": "EMA_20", "type": "EMA", "period": 20}],
+        "rules": []
+    }
+)
+
+# Run backtesting
+backtest_result = engine.backtest_symbol(
+    symbol="AAPL",
+    strategy_config={
+        "indicators": [
+            {"name": "EMA_12", "type": "EMA", "period": 12},
+            {"name": "EMA_26", "type": "EMA", "period": 26}
+        ],
+        "rules": [
+            {
+                "type": "crossover",
+                "fast_indicator": "EMA_12",
+                "slow_indicator": "EMA_26",
+                "signal": "buy"
+            }
+        ]
+    }
+)
+```
+
+### With API Support
+
+Install with FastAPI support:
+
+```bash
+pip install -e .[api]
+```
+
+Then run the API:
+
+```bash
+cd src/app
+uvicorn main:app --reload
+```
+
+### With Streamlit Support
+
+Install with Streamlit support:
+
+```bash
+pip install -e .[streamlit]
+```
+
+### Full Installation
+
+Install everything:
+
+```bash
+pip install -e .[all]
+```
+
+## Architecture
+
+The project follows a clean dependency structure with a dedicated engine subdirectory:
+
+- **Core Engine**: `technical_analysis_engine.engine` - Self-contained engine components (strategy, indicators, signals)
+- **Data Services**: `technical_analysis_engine` - Yahoo Finance integration and ticker management
+- **API Layer**: `src/app` - FastAPI application that uses the engine (optional)
+- **Frontend**: `src/streamlit_app` - Streamlit interface that calls the API (optional)
+
+### Dependency Chain
+
+```
+Streamlit App → FastAPI API → Technical Analysis Engine → VectorBT
+```
+
+The engine can be used independently without the API or Streamlit components.
+
+## Features
+
+### Core Engine Features
+
+- **Data Fetching**: Built-in Yahoo Finance integration
+- **Technical Indicators**: EMA, SMA, RSI, MACD with extensible framework
+- **Strategy Building**: Flexible strategy definition with crossover and threshold rules
+- **Signal Generation**: Entry/exit signal generation based on strategy rules
+- **Backtesting**: VectorBT-powered backtesting with comprehensive metrics
+- **Ticker Management**: Curated ticker lists and validation
+
+### API Features (Optional)
+
+- **Custom Strategy Creation**: RESTful endpoints for building strategies
+- **Real-time Analysis**: Live strategy analysis with Yahoo Finance data
+- **Backtesting API**: Comprehensive backtesting with VectorBT integration
+- **Ticker Management**: Popular tickers, validation, and recommendations
+
+### Streamlit Features (Optional)
+
+- **Strategy Builder**: Interactive strategy creation interface
+- **Strategy Tester**: Backtesting interface with charts and metrics
+- **Visual Charts**: Candlestick charts with indicators and signals
+- **Performance Metrics**: Comprehensive backtesting results display
+
+## Examples
+
+### Standalone Engine Usage
+
+```python
+from technical_analysis_engine import TechnicalAnalysisEngine
+
+# Initialize engine
+engine = TechnicalAnalysisEngine()
+
+# Simple EMA crossover strategy
+strategy_config = {
+    "indicators": [
+        {"name": "EMA_12", "type": "EMA", "period": 12},
+        {"name": "EMA_26", "type": "EMA", "period": 26}
+    ],
+    "crossover_rules": [
+        {
+            "name": "EMA_Cross",
+            "fast_indicator": "EMA_12",
+            "slow_indicator": "EMA_26",
+            "direction": "above",
+            "signal_type": "buy"
+        }
+    ]
+}
+
+# Run analysis
+result = engine.analyze_symbol("AAPL", strategy_config)
+print(f"Generated {len(result.signals)} signals")
+
+# Run backtest
+backtest = engine.backtest_symbol("AAPL", strategy_config)
+print(f"Total return: {backtest.backtest_performance['total_return']:.2%}")
+```
+
+### API Usage
+
+Start the API server:
+
+```bash
+cd src/app
+uvicorn main:app --reload
+```
+
+Then use the API endpoints:
+
+- `POST /strategies/custom` - Create custom strategies
+- `POST /backtest/custom/ticker` - Backtest strategies
+- `GET /tickers/popular` - Get popular tickers
+- `GET /indicators/types` - Get available indicators
+
+### Streamlit Usage
+
+```bash
+cd src/streamlit_app
+streamlit run streamlit_app.py
+```
+
+Access the web interface at `http://localhost:8501`
+
+## Development
+
+### Project Structure
+
+```
+├── src/
+│   ├── technical_analysis_engine/    # Main package
+│   │   ├── engine/                  # Core engine components 
+│   │   │   ├── __init__.py         # Engine exports
+│   │   │   ├── core.py             # TechnicalAnalysisEngine class
+│   │   │   ├── strategy.py         # Strategy execution engine
+│   │   │   ├── indicators.py       # Technical indicators
+│   │   │   ├── signals.py          # Signal generation
+│   │   │   ├── config.py           # Strategy configurations
+│   │   │   ├── builders.py         # Strategy builders
+│   │   │   └── ta_types.py         # Type definitions
+│   │   ├── __init__.py             # Package exports
+│   │   ├── data_service.py         # Yahoo Finance integration
+│   │   ├── ticker_config.py        # Ticker management
+│   │   ├── tickers.yaml            # Ticker configuration
+│   │   └── utils.py                # Utility functions
+│   ├── app/                         # FastAPI application (optional)
+│   │   ├── main.py                  # API endpoints
+│   │   ├── models.py                # API models
+│   │   └── services.py              # API services
+│   └── streamlit_app/               # Streamlit interface (optional)
+│       ├── streamlit_app.py         # Main app
+│       └── pages/                   # App pages
+├── pyproject.toml                   # Package configuration
+└── README.md                        # This file
+```
+
+### Running Tests
+
+```bash
+# Install with dev dependencies
+pip install -e .[dev]
+
+# Run tests
+pytest
+```
+
+## License
+
+MIT License 

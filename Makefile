@@ -15,7 +15,7 @@ SHELL := /bin/bash
 SRC_DIR := src
 API_DIR := $(SRC_DIR)/app
 STREAMLIT_DIR := $(SRC_DIR)/streamlit_app
-ENGINE_DIR := $(SRC_DIR)/techincal-analysis-engine
+ENGINE_DIR := $(SRC_DIR)/technical_analysis_engine
 
 # Server settings
 API_HOST := localhost
@@ -276,6 +276,20 @@ urls: ## Show application URLs
 	@echo "$(YELLOW)Streamlit Application:$(NC)"
 	@echo "  Web Interface:   http://$(STREAMLIT_HOST):$(STREAMLIT_PORT)"
 
+.PHONY: docs
+docs: ## Show documentation locations
+	@echo "$(CYAN)📚 Documentation$(NC)"
+	@echo "================="
+	@echo "$(YELLOW)Main Documentation:$(NC)"
+	@echo "  Project README:   ./README.md"
+	@echo "  API Reference:    ./docs/README_API.md"
+	@echo "  Architecture:     ./docs/ARCHITECTURE.md"
+	@echo "  Directory Guide:  ./docs/DIRECTORY_STRUCTURE.md"
+	@echo ""
+	@echo "$(YELLOW)Interactive Docs:$(NC)"
+	@echo "  API Docs:         http://$(API_HOST):$(API_PORT)/docs (when API running)"
+	@echo "  Examples:         Use Streamlit app for interactive examples"
+
 # =============================================================================
 # MAINTENANCE & CLEANUP
 # =============================================================================
@@ -340,5 +354,5 @@ docker-run: ## Run Docker container
 # Prevent make from treating file names as targets
 .PHONY: all clean clean-all setup install-deps install-engine check-env \
         dev api streamlit api-prod stop test test-api validate \
-        logs status urls help info upgrade-deps reset \
+        logs status urls docs help info upgrade-deps reset \
         docker-build docker-run 
