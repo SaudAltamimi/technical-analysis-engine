@@ -16,13 +16,13 @@ from builders import StrategyBuilder
 from config import StrategyDefinition, IndicatorDefinition, CrossoverRule, ThresholdRule, EMAConfig, RSIConfig, MACDConfig
 from ta_types import IndicatorType, SignalType, CrossoverDirection, ThresholdCondition
 
-from .models import (
-    PriceDataPoint, IndicatorResult, IndicatorValuePoint, SignalPoint, 
+from models import (
+    PriceDataPoint, PricePoint, IndicatorResult, IndicatorValuePoint, SignalPoint, 
     AnalysisResult, BacktestResult, EMAStrategyRequest, MultiEMAStrategyRequest,
     RSIStrategyRequest, BacktestParams, TickerInfo, DynamicStrategyDefinition, 
-    TickerRequest, DateRangeRequest
+    TickerRequest, DateRangeRequest, ComprehensiveBacktestResult
 )
-from .data_service import YahooFinanceService, TickerRequest, DateRangeRequest, PeriodEnum
+from data_service import YahooFinanceService, TickerRequest, DateRangeRequest, PeriodEnum
 
 
 class TechnicalAnalysisService:
@@ -52,10 +52,27 @@ class TechnicalAnalysisService:
         return points
     
     @staticmethod
+    def ohlc_to_price_points(ohlc_df: pd.DataFrame) -> List[PricePoint]:
+        """Convert OHLC DataFrame to PricePoint list"""
+        points = []
+        for timestamp, row in ohlc_df.iterrows():
+            if pd.notna(row['Close']):  # Ensure we have valid data
+                points.append(PricePoint(
+                    timestamp=timestamp.to_pydatetime(),
+                    open=float(row['Open']),
+                    high=float(row['High']),
+                    low=float(row['Low']),
+                    close=float(row['Close']),
+                    volume=int(row['Volume']) if pd.notna(row['Volume']) else None
+                ))
+        return points
+    
+    @staticmethod
     def signals_to_signal_points(
         signals: Dict[str, pd.Series], 
         signal_type: SignalType,
-        rule_names: List[str]
+        rule_names: List[str],
+        price_series: pd.Series = None
     ) -> List[SignalPoint]:
         """Convert signal series to SignalPoint list"""
         points = []
@@ -65,11 +82,17 @@ class TechnicalAnalysisService:
                 series = signals[rule_name]
                 for timestamp, signal in series.items():
                     if pd.notna(signal) and signal:  # Only include active signals
+                        # Get price at signal timestamp if available
+                        price = None
+                        if price_series is not None and timestamp in price_series.index:
+                            price = float(price_series.loc[timestamp])
+                        
                         points.append(SignalPoint(
                             timestamp=timestamp.to_pydatetime(),
                             signal=bool(signal),
                             signal_type=signal_type,
-                            rule_name=rule_name
+                            rule_name=rule_name,
+                            price=price
                         ))
         
         return points
@@ -81,10 +104,10 @@ class TechnicalAnalysisService:
             typed_strategy = strategy.to_typed_definition()
             
             # Fetch data from Yahoo Finance
-            price_series, data_info = self.data_service.fetch_by_period(ticker_request)
+            price_series, ohlc_df, data_info = self.data_service.fetch_by_period(ticker_request)
             
             # Perform analysis
-            return self._analyze_with_price_series(typed_strategy, price_series, ticker_request.symbol, data_info)
+            return self._analyze_with_price_series(typed_strategy, price_series, ohlc_df, ticker_request.symbol, data_info)
             
         except Exception as e:
             raise ValueError(f"Ticker analysis failed: {str(e)}")
@@ -96,10 +119,10 @@ class TechnicalAnalysisService:
             typed_strategy = strategy.to_typed_definition()
             
             # Fetch data from Yahoo Finance
-            price_series, data_info = self.data_service.fetch_by_date_range(date_range_request)
+            price_series, ohlc_df, data_info = self.data_service.fetch_by_date_range(date_range_request)
             
             # Perform analysis
-            return self._analyze_with_price_series(typed_strategy, price_series, date_range_request.symbol, data_info)
+            return self._analyze_with_price_series(typed_strategy, price_series, ohlc_df, date_range_request.symbol, data_info)
             
         except Exception as e:
             raise ValueError(f"Date range analysis failed: {str(e)}")
@@ -114,8 +137,17 @@ class TechnicalAnalysisService:
         # Convert price data to pandas Series
         price_series = self.price_data_to_series(price_data)
         
+        # Create mock OHLC DataFrame from price data (all OHLC = Close price)
+        ohlc_df = pd.DataFrame({
+            'Open': price_series,
+            'High': price_series,
+            'Low': price_series,
+            'Close': price_series,
+            'Volume': pd.Series([0] * len(price_series), index=price_series.index)
+        })
+        
         # Create mock data info for compatibility
-        from .data_service import DataFetchResult
+        from data_service import DataFetchResult
         data_info = DataFetchResult(
             symbol="CUSTOM",
             data_points=len(price_series),
@@ -125,12 +157,13 @@ class TechnicalAnalysisService:
         )
         
         # Perform analysis
-        return self._analyze_with_price_series(strategy, price_series, "CUSTOM", data_info)
+        return self._analyze_with_price_series(strategy, price_series, ohlc_df, "CUSTOM", data_info)
     
     def _analyze_with_price_series(
         self, 
         strategy: StrategyDefinition, 
         price_series: pd.Series,
+        ohlc_df: pd.DataFrame,
         symbol: str,
         data_info
     ) -> AnalysisResult:
@@ -200,7 +233,8 @@ class TechnicalAnalysisService:
                     rule_signals = self.signals_to_signal_points(
                         {rule_name: signal_series}, 
                         rule_signal_type, 
-                        [rule_name]
+                        [rule_name],
+                        price_series
                     )
                     all_signal_points.extend(rule_signals)
         
@@ -209,7 +243,8 @@ class TechnicalAnalysisService:
             entry_combined_signals = self.signals_to_signal_points(
                 {"combined_entry": entry_signals},
                 SignalType.ENTRY,
-                ["combined_entry"]
+                ["combined_entry"],
+                price_series
             )
             entry_signal_points = entry_combined_signals
         
@@ -218,14 +253,19 @@ class TechnicalAnalysisService:
             exit_combined_signals = self.signals_to_signal_points(
                 {"combined_exit": exit_signals},
                 SignalType.EXIT,
-                ["combined_exit"]
+                ["combined_exit"],
+                price_series
             )
             exit_signal_points = exit_combined_signals
+        
+        # Convert OHLC data to price points
+        price_data = self.ohlc_to_price_points(ohlc_df)
         
         return AnalysisResult(
             strategy_name=strategy.name,
             symbol=symbol,
             data_info=data_info,
+            price_data=price_data,
             indicators=indicator_results,
             signals=all_signal_points,
             entry_signals=entry_signal_points,
@@ -239,7 +279,7 @@ class TechnicalAnalysisService:
             typed_strategy = strategy.to_typed_definition()
             
             # Fetch data from Yahoo Finance
-            price_series, _ = self.data_service.fetch_by_period(ticker_request)
+            price_series, _, _ = self.data_service.fetch_by_period(ticker_request)
             
             # Perform backtest
             return self._backtest_with_price_series(typed_strategy, price_series, params)
@@ -254,7 +294,7 @@ class TechnicalAnalysisService:
             typed_strategy = strategy.to_typed_definition()
             
             # Fetch data from Yahoo Finance
-            price_series, _ = self.data_service.fetch_by_date_range(date_range_request)
+            price_series, _, _ = self.data_service.fetch_by_date_range(date_range_request)
             
             # Perform backtest
             return self._backtest_with_price_series(typed_strategy, price_series, params)
@@ -351,6 +391,66 @@ class TechnicalAnalysisService:
             win_rate=float(win_rate),
             total_trades=total_trades,
             final_value=float(final_value)
+        )
+    
+    def comprehensive_backtest_ticker_strategy(self, strategy: DynamicStrategyDefinition, ticker_request: TickerRequest, params: BacktestParams) -> ComprehensiveBacktestResult:
+        """Comprehensive backtest with both VectorBT performance and analysis data"""
+        try:
+            # Convert dynamic strategy to typed strategy
+            typed_strategy = strategy.to_typed_definition()
+            
+            # Fetch data from Yahoo Finance
+            price_series, ohlc_df, data_info = self.data_service.fetch_by_period(ticker_request)
+            
+            # Perform comprehensive backtest
+            return self._comprehensive_backtest_with_price_series(typed_strategy, price_series, ohlc_df, ticker_request.symbol, data_info, params)
+            
+        except Exception as e:
+            raise ValueError(f"Comprehensive ticker backtest failed: {str(e)}")
+    
+    def comprehensive_backtest_ticker_date_range_strategy(self, strategy: DynamicStrategyDefinition, date_range_request: DateRangeRequest, params: BacktestParams) -> ComprehensiveBacktestResult:
+        """Comprehensive backtest with date range including both VectorBT performance and analysis data"""
+        try:
+            # Convert dynamic strategy to typed strategy
+            typed_strategy = strategy.to_typed_definition()
+            
+            # Fetch data from Yahoo Finance
+            price_series, ohlc_df, data_info = self.data_service.fetch_by_date_range(date_range_request)
+            
+            # Perform comprehensive backtest
+            return self._comprehensive_backtest_with_price_series(typed_strategy, price_series, ohlc_df, date_range_request.symbol, data_info, params)
+            
+        except Exception as e:
+            raise ValueError(f"Comprehensive date range backtest failed: {str(e)}")
+    
+    def _comprehensive_backtest_with_price_series(
+        self,
+        strategy: StrategyDefinition,
+        price_series: pd.Series,
+        ohlc_df: pd.DataFrame,
+        symbol: str,
+        data_info,
+        params: BacktestParams
+    ) -> ComprehensiveBacktestResult:
+        """Internal method for comprehensive backtesting with full analysis"""
+        
+        # First, get the complete analysis (indicators, signals, price data)
+        analysis_result = self._analyze_with_price_series(strategy, price_series, ohlc_df, symbol, data_info)
+        
+        # Then, perform the VectorBT backtest
+        backtest_result = self._backtest_with_price_series(strategy, price_series, params)
+        
+        # Create comprehensive result
+        return ComprehensiveBacktestResult(
+            performance=backtest_result,
+            analysis=analysis_result,
+            backtest_metadata={
+                "engine": "VectorBT",
+                "strategy_type": "custom",
+                "data_points": len(price_series),
+                "backtest_params": params.dict(),
+                "dependency_chain": "Streamlit -> API -> TechnicalAnalysisEngine -> VectorBT"
+            }
         )
 
 

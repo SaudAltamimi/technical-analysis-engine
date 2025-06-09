@@ -1,6 +1,6 @@
 """
 FastAPI application for Technical Analysis Engine
-Designed for easy integration with iOS apps using Swift
+Focused on custom strategy creation and backtesting
 """
 
 from fastapi import FastAPI, HTTPException, status
@@ -15,24 +15,21 @@ import os
 # Add the technical analysis engine to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'techincal-analysis-engine'))
 
-from .models import (
+from models import (
     APIResponse, ErrorResponse, HealthResponse, StatusEnum,
-    AnalysisRequest, AnalysisResult, BacktestRequest, BacktestResult,
-    TickerAnalysisRequest, DateRangeAnalysisRequest,
     TickerBacktestRequest, DateRangeBacktestRequest,
-    EMAStrategyRequest, MultiEMAStrategyRequest, RSIStrategyRequest,
-    CreateIndicatorRequest, CreateRuleRequest, PriceDataPoint, TickerInfo,
     DynamicIndicatorDefinition, DynamicStrategyDefinition
 )
-from .services import TechnicalAnalysisService, StrategyBuilderService
-from .data_service import YahooFinanceService, TickerRequest, DateRangeRequest, PeriodEnum, IntervalEnum
-from config import StrategyDefinition, IndicatorDefinition
+from services import TechnicalAnalysisService, StrategyBuilderService
+from data_service import YahooFinanceService, TickerRequest, DateRangeRequest, PeriodEnum, IntervalEnum
+from config import StrategyDefinition
 from ta_types import IndicatorType
+from ticker_config import get_ticker_config
 
 # Create FastAPI app
 app = FastAPI(
-    title="Technical Analysis API",
-    description="RESTful API for technical analysis and trading signal generation, optimized for iOS integration with Yahoo Finance data",
+    title="Custom Strategy Analysis & Backtesting API",
+    description="Focused API for custom strategy creation and backtesting with Yahoo Finance data",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -51,6 +48,7 @@ app.add_middleware(
 analysis_service = TechnicalAnalysisService()
 strategy_service = StrategyBuilderService()
 data_service = YahooFinanceService()
+ticker_config = get_ticker_config()
 
 
 @app.exception_handler(Exception)
@@ -72,8 +70,23 @@ async def root():
     """Root endpoint"""
     return APIResponse(
         status=StatusEnum.SUCCESS,
-        message="Technical Analysis API is running with Yahoo Finance integration",
-        data={"version": "1.0.0", "docs": "/docs", "features": ["ticker_analysis", "yahoo_finance", "ios_optimized"]}
+        message="Custom Strategy Analysis & Backtesting API",
+        data={
+            "version": "1.0.0", 
+            "docs": "/docs", 
+            "features": ["custom_strategies", "backtesting", "yahoo_finance", "ticker_management"],
+            "main_endpoints": [
+                "/strategies/custom", 
+                "/backtest/custom/ticker", 
+                "/backtest/custom/date-range",
+                "/tickers/popular",
+                "/tickers/{symbol}/validate",
+                "/tickers/{symbol}/info",
+                "/tickers/search",
+                "/tickers/recommendations/{strategy_type}",
+                "/tickers/config/stats"
+            ]
+        }
     )
 
 
@@ -81,381 +94,6 @@ async def root():
 async def health_check():
     """Health check endpoint for monitoring"""
     return HealthResponse()
-
-
-# New ticker-based endpoints (recommended)
-@app.post("/analyze/ticker", response_model=APIResponse)
-async def analyze_ticker_strategy(request: TickerAnalysisRequest):
-    """
-    Perform technical analysis using Yahoo Finance data
-    
-    Simply provide a ticker symbol and the API will fetch data automatically.
-    This is the recommended way to use the API.
-    """
-    try:
-        result = analysis_service.analyze_ticker_strategy(request.strategy, request.ticker)
-        
-        return APIResponse(
-            status=StatusEnum.SUCCESS,
-            message=f"Analysis completed for {request.ticker.symbol}",
-            data=result.dict()
-        )
-    
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Analysis failed: {str(e)}"
-        )
-
-
-@app.post("/analyze/date-range", response_model=APIResponse)
-async def analyze_date_range_strategy(request: DateRangeAnalysisRequest):
-    """
-    Perform technical analysis with custom date range
-    
-    Allows you to specify exact start and end dates for historical analysis.
-    """
-    try:
-        result = analysis_service.analyze_ticker_date_range_strategy(request.strategy, request.ticker)
-        
-        return APIResponse(
-            status=StatusEnum.SUCCESS,
-            message=f"Analysis completed for {request.ticker.symbol} ({request.ticker.start_date.date()} to {request.ticker.end_date.date()})",
-            data=result.dict()
-        )
-    
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Analysis failed: {str(e)}"
-        )
-
-
-@app.post("/backtest/ticker", response_model=APIResponse)
-async def backtest_ticker_strategy(request: TickerBacktestRequest):
-    """
-    Backtest a strategy using Yahoo Finance data
-    
-    Returns performance metrics based on historical data.
-    """
-    try:
-        result = analysis_service.backtest_ticker_strategy(
-            request.strategy, 
-            request.ticker, 
-            request.params
-        )
-        
-        return APIResponse(
-            status=StatusEnum.SUCCESS,
-            message=f"Backtest completed for {request.ticker.symbol}",
-            data=result.dict()
-        )
-    
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Backtest failed: {str(e)}"
-        )
-
-
-@app.post("/backtest/date-range", response_model=APIResponse)
-async def backtest_date_range_strategy(request: DateRangeBacktestRequest):
-    """
-    Backtest a strategy with custom date range
-    """
-    try:
-        result = analysis_service.backtest_ticker_date_range_strategy(
-            request.strategy, 
-            request.ticker, 
-            request.params
-        )
-        
-        return APIResponse(
-            status=StatusEnum.SUCCESS,
-            message=f"Backtest completed for {request.ticker.symbol}",
-            data=result.dict()
-        )
-    
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Backtest failed: {str(e)}"
-        )
-
-
-# Quick strategy endpoints (updated to use tickers)
-@app.post("/strategies/ema-crossover", response_model=APIResponse)
-async def create_ema_strategy(request: EMAStrategyRequest):
-    """
-    Create and analyze EMA crossover strategy using ticker symbol
-    
-    Quick way to create a simple fast/slow EMA crossover strategy with real market data.
-    """
-    try:
-        # Create strategy and ticker request
-        strategy, ticker_request = strategy_service.create_ema_crossover_strategy(request)
-        
-        # Fetch data from Yahoo Finance
-        price_series, data_info = data_service.fetch_by_period(ticker_request)
-        
-        # Analyze strategy with the helper method
-        result = analysis_service._analyze_with_price_series(strategy, price_series, request.symbol, data_info)
-        
-        return APIResponse(
-            status=StatusEnum.SUCCESS,
-            message=f"EMA crossover strategy created and analyzed for {request.symbol}",
-            data={
-                "strategy": strategy.dict(),
-                "analysis": result.dict()
-            }
-        )
-    
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"EMA strategy creation failed: {str(e)}"
-        )
-
-
-@app.post("/strategies/multi-ema", response_model=APIResponse)
-async def create_multi_ema_strategy(request: MultiEMAStrategyRequest):
-    """
-    Create and analyze multiple EMA strategy using ticker symbol
-    
-    Dynamically creates multiple EMA indicators and crossover rules.
-    Example: 3 EMAs with periods [5, 20, 50] creates crossover signals between consecutive pairs.
-    """
-    try:
-        # Create strategy and ticker request
-        strategy, ticker_request = strategy_service.create_multi_ema_strategy(request)
-        
-        # Fetch data from Yahoo Finance
-        price_series, data_info = data_service.fetch_by_period(ticker_request)
-        
-        # Analyze strategy with the helper method
-        result = analysis_service._analyze_with_price_series(strategy, price_series, request.symbol, data_info)
-        
-        return APIResponse(
-            status=StatusEnum.SUCCESS,
-            message=f"Multi-EMA strategy created with {len(request.ema_periods)} indicators for {request.symbol}",
-            data={
-                "strategy": strategy.dict(),
-                "analysis": result.dict()
-            }
-        )
-    
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Multi-EMA strategy creation failed: {str(e)}"
-        )
-
-
-@app.post("/strategies/rsi", response_model=APIResponse)
-async def create_rsi_strategy(request: RSIStrategyRequest):
-    """
-    Create and analyze RSI-based strategy using ticker symbol
-    
-    Creates RSI indicator with overbought/oversold threshold rules.
-    """
-    try:
-        # Create strategy and ticker request
-        strategy, ticker_request = strategy_service.create_rsi_strategy(request)
-        
-        # Fetch data from Yahoo Finance
-        price_series, data_info = data_service.fetch_by_period(ticker_request)
-        
-        # Analyze strategy with the helper method
-        result = analysis_service._analyze_with_price_series(strategy, price_series, request.symbol, data_info)
-        
-        return APIResponse(
-            status=StatusEnum.SUCCESS,
-            message=f"RSI strategy created and analyzed for {request.symbol}",
-            data={
-                "strategy": strategy.dict(),
-                "analysis": result.dict()
-            }
-        )
-    
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"RSI strategy creation failed: {str(e)}"
-        )
-
-
-# Ticker information endpoints
-@app.get("/tickers/{symbol}/info", response_model=APIResponse)
-async def get_ticker_info(symbol: str):
-    """
-    Get information about a stock ticker
-    
-    Returns company name, sector, industry, and other basic information.
-    """
-    try:
-        info = strategy_service.get_ticker_info(symbol)
-        
-        return APIResponse(
-            status=StatusEnum.SUCCESS,
-            message=f"Ticker information retrieved for {symbol}",
-            data=info.dict()
-        )
-    
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to get ticker info: {str(e)}"
-        )
-
-
-@app.get("/tickers/{symbol}/validate", response_model=APIResponse)
-async def validate_ticker(symbol: str):
-    """
-    Validate if a ticker symbol exists and has data
-    """
-    try:
-        is_valid = data_service.validate_symbol(symbol)
-        
-        return APIResponse(
-            status=StatusEnum.SUCCESS,
-            message=f"Ticker validation completed for {symbol}",
-            data={
-                "symbol": symbol.upper(),
-                "is_valid": is_valid,
-                "message": "Symbol is valid and has data" if is_valid else "Symbol is invalid or has no data"
-            }
-        )
-    
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Ticker validation failed: {str(e)}"
-        )
-
-
-# Utility endpoints
-@app.get("/indicators/types", response_model=APIResponse)
-async def get_indicator_types():
-    """Get available indicator types"""
-    return APIResponse(
-        status=StatusEnum.SUCCESS,
-        message="Available indicator types",
-        data={
-            "types": [indicator_type.value for indicator_type in IndicatorType],
-            "descriptions": {
-                "EMA": "Exponential Moving Average",
-                "SMA": "Simple Moving Average", 
-                "RSI": "Relative Strength Index",
-                "MACD": "Moving Average Convergence Divergence"
-            }
-        }
-    )
-
-
-@app.get("/periods", response_model=APIResponse)
-async def get_available_periods():
-    """Get available time periods for analysis"""
-    return APIResponse(
-        status=StatusEnum.SUCCESS,
-        message="Available time periods",
-        data={
-            "periods": [period.value for period in PeriodEnum],
-            "intervals": [interval.value for interval in IntervalEnum],
-            "descriptions": {
-                "1d": "1 Day",
-                "5d": "5 Days", 
-                "1mo": "1 Month",
-                "3mo": "3 Months",
-                "6mo": "6 Months",
-                "1y": "1 Year",
-                "2y": "2 Years",
-                "5y": "5 Years",
-                "10y": "10 Years",
-                "ytd": "Year to Date",
-                "max": "Maximum Available"
-            }
-        }
-    )
-
-
-@app.post("/strategies/validate", response_model=APIResponse)
-async def validate_strategy(strategy: StrategyDefinition):
-    """
-    Validate strategy definition without running analysis
-    
-    Useful for checking strategy configuration before analysis.
-    """
-    try:
-        # The Pydantic model validation will catch most errors
-        # Additional validation can be added here
-        
-        return APIResponse(
-            status=StatusEnum.SUCCESS,
-            message="Strategy definition is valid",
-            data={
-                "strategy": strategy.dict(),
-                "indicators_count": len(strategy.indicators),
-                "crossover_rules_count": len(strategy.crossover_rules),
-                "threshold_rules_count": len(strategy.threshold_rules)
-            }
-        )
-    
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Strategy validation failed: {str(e)}"
-        )
-
-
-# Legacy endpoints (for backward compatibility)
-@app.post("/analyze", response_model=APIResponse)
-async def analyze_strategy(request: AnalysisRequest):
-    """
-    [LEGACY] Perform technical analysis with custom price data
-    
-    ⚠️ This endpoint is deprecated. Use /analyze/ticker instead.
-    """
-    try:
-        result = analysis_service.analyze_strategy(request.strategy, request.price_data)
-        
-        return APIResponse(
-            status=StatusEnum.SUCCESS,
-            message="Analysis completed successfully (legacy endpoint)",
-            data=result.dict()
-        )
-    
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Analysis failed: {str(e)}"
-        )
-
-
-@app.post("/backtest", response_model=APIResponse)
-async def backtest_strategy(request: BacktestRequest):
-    """
-    [LEGACY] Backtest a trading strategy with custom price data
-    
-    ⚠️ This endpoint is deprecated. Use /backtest/ticker instead.
-    """
-    try:
-        result = analysis_service.backtest_strategy(
-            request.strategy, 
-            request.price_data, 
-            request.params
-        )
-        
-        return APIResponse(
-            status=StatusEnum.SUCCESS,
-            message="Backtest completed successfully (legacy endpoint)",
-            data=result.dict()
-        )
-    
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Backtest failed: {str(e)}"
-        )
 
 
 @app.post("/strategies/custom", response_model=APIResponse)
@@ -580,33 +218,182 @@ async def create_custom_strategy(request: Dict[str, Any]):
         )
 
 
-@app.post("/strategies/create", response_model=APIResponse)
-async def create_full_strategy(request: TickerAnalysisRequest):
+@app.post("/backtest/custom/ticker", response_model=APIResponse)
+async def backtest_custom_strategy_ticker(request: TickerBacktestRequest):
     """
-    Create and analyze a complete strategy with structured definition
+    Backtest a custom strategy using Yahoo Finance data
     
-    Accepts a full strategy definition with indicators, crossover rules, and threshold rules.
-    This is the recommended way to create complex strategies programmatically.
+    Specifically designed for custom strategies created via /strategies/custom.
+    Returns detailed performance metrics and trading signals.
     """
     try:
-        # Validate that strategy has at least one indicator
-        if not request.strategy.indicators:
-            raise ValueError("Strategy must have at least one indicator")
+        # Validate that it's a custom strategy (has indicators and rules)
+        if not hasattr(request.strategy, 'indicators') or not request.strategy.indicators:
+            raise ValueError("Strategy must be a custom strategy with indicators")
         
-        # Analyze strategy
-        result = analysis_service.analyze_ticker_strategy(request.strategy, request.ticker)
+        result = analysis_service.comprehensive_backtest_ticker_strategy(
+            request.strategy, 
+            request.ticker, 
+            request.params
+        )
         
         return APIResponse(
             status=StatusEnum.SUCCESS,
-            message=f"Strategy '{request.strategy.name}' created and analyzed for {request.ticker.symbol}",
+            message=f"Custom strategy backtest completed for {request.ticker.symbol}",
             data={
-                "strategy": request.strategy.dict(),
-                "analysis": result.dict(),
-                "rules_summary": {
-                    "indicators": len(request.strategy.indicators),
-                    "crossover_rules": len(request.strategy.crossover_rules),
-                    "threshold_rules": len(request.strategy.threshold_rules),
-                    "total_rules": len(request.strategy.crossover_rules) + len(request.strategy.threshold_rules)
+                "backtest_results": result.dict(),
+                "strategy_info": {
+                    "name": request.strategy.name,
+                    "indicators_count": len(request.strategy.indicators),
+                    "rules_count": len(getattr(request.strategy, 'crossover_rules', [])) + len(getattr(request.strategy, 'threshold_rules', []))
+                },
+                "vectorbt_trusted": True,
+                "dependency_chain": "Streamlit -> API -> TechnicalAnalysisEngine -> VectorBT"
+            }
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Custom strategy backtest failed: {str(e)}"
+        )
+
+
+@app.post("/backtest/custom/date-range", response_model=APIResponse)
+async def backtest_custom_strategy_date_range(request: DateRangeBacktestRequest):
+    """
+    Backtest a custom strategy with specific date range
+    
+    Specifically designed for custom strategies with precise date control.
+    Useful for testing strategies against specific market conditions or events.
+    """
+    try:
+        # Validate that it's a custom strategy (has indicators and rules)
+        if not hasattr(request.strategy, 'indicators') or not request.strategy.indicators:
+            raise ValueError("Strategy must be a custom strategy with indicators")
+        
+        result = analysis_service.comprehensive_backtest_ticker_date_range_strategy(
+            request.strategy, 
+            request.ticker, 
+            request.params
+        )
+        
+        return APIResponse(
+            status=StatusEnum.SUCCESS,
+            message=f"Custom strategy backtest completed for {request.ticker.symbol} ({request.ticker.start_date.date()} to {request.ticker.end_date.date()})",
+            data={
+                "backtest_results": result.dict(),
+                "strategy_info": {
+                    "name": request.strategy.name,
+                    "indicators_count": len(request.strategy.indicators),
+                    "rules_count": len(getattr(request.strategy, 'crossover_rules', [])) + len(getattr(request.strategy, 'threshold_rules', []))
+                },
+                "date_range": {
+                    "start_date": request.ticker.start_date.isoformat(),
+                    "end_date": request.ticker.end_date.isoformat()
+                },
+                "vectorbt_trusted": True,
+                "dependency_chain": "Streamlit -> API -> TechnicalAnalysisEngine -> VectorBT"
+            }
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Custom strategy backtest failed: {str(e)}"
+        )
+
+
+@app.get("/tickers/recommendations/{strategy_type}", response_model=APIResponse)
+async def get_strategy_ticker_recommendations(strategy_type: str):
+    """
+    Get ticker recommendations for specific strategy types
+    
+    Returns recommended ticker categories and specific tickers based on strategy characteristics.
+    Strategy types: trend_following, momentum, mean_reversion, volatility
+    """
+    try:
+        # Get strategy recommendations from YAML config
+        recommendations = ticker_config.get_strategy_recommendations()
+        
+        if strategy_type not in recommendations:
+            available_types = list(recommendations.keys())
+            raise ValueError(f"Strategy type '{strategy_type}' not found. Available: {available_types}")
+        
+        strategy_rec = recommendations[strategy_type]
+        recommended_categories = strategy_rec.get('recommended_categories', [])
+        
+        # Get tickers for recommended categories
+        recommended_tickers = {}
+        total_tickers = 0
+        
+        for category in recommended_categories:
+            try:
+                category_data = ticker_config.get_category(category)
+                tickers = category_data.get('tickers', [])
+                recommended_tickers[category] = {
+                    "description": category_data.get('description'),
+                    "ticker_count": len(tickers),
+                    "sample_tickers": [t.get('symbol') for t in tickers[:5]]  # First 5 as sample
+                }
+                total_tickers += len(tickers)
+            except KeyError:
+                continue  # Skip invalid categories
+        
+        return APIResponse(
+            status=StatusEnum.SUCCESS,
+            message=f"Ticker recommendations for {strategy_type} strategies",
+            data={
+                "strategy_type": strategy_type,
+                "strategy_info": {
+                    "description": strategy_rec.get('description'),
+                    "note": strategy_rec.get('note'),
+                    "avoid": strategy_rec.get('avoid')
+                },
+                "recommended_categories": recommended_tickers,
+                "total_recommended_tickers": total_tickers,
+                "usage_note": f"These tickers are specifically curated for {strategy_type} strategies",
+                "next_steps": [
+                    "Choose tickers from recommended categories",
+                    "Use /tickers/{symbol}/validate to verify specific tickers", 
+                    "Create custom strategy with /strategies/custom",
+                    "Backtest with /backtest/custom/ticker"
+                ]
+            }
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to get strategy recommendations: {str(e)}"
+        )
+
+
+@app.get("/tickers/config/stats", response_model=APIResponse)
+async def get_ticker_config_stats():
+    """
+    Get statistics about the ticker configuration
+    
+    Returns metadata about available tickers, categories, and configuration details.
+    """
+    try:
+        stats = ticker_config.get_stats()
+        metadata = ticker_config.get_metadata()
+        strategy_recs = ticker_config.get_strategy_recommendations()
+        
+        return APIResponse(
+            status=StatusEnum.SUCCESS,
+            message="Ticker configuration statistics",
+            data={
+                "statistics": stats,
+                "metadata": metadata,
+                "available_strategy_types": list(strategy_recs.keys()),
+                "configuration_health": {
+                    "total_categories": stats['total_categories'],
+                    "total_tickers": stats['total_unique_tickers'],
+                    "avg_tickers_per_category": round(stats['total_unique_tickers'] / stats['total_categories'], 1),
+                    "last_updated": metadata.get('last_updated'),
+                    "version": metadata.get('version')
                 }
             }
         )
@@ -614,21 +401,94 @@ async def create_full_strategy(request: TickerAnalysisRequest):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Strategy creation failed: {str(e)}"
+            detail=f"Failed to get config stats: {str(e)}"
         )
 
 
-@app.post("/strategies/validate-full", response_model=APIResponse)
-async def validate_full_strategy(strategy: DynamicStrategyDefinition):
+# Utility endpoints for metadata
+@app.get("/indicators/types", response_model=APIResponse)
+async def get_indicator_types():
+    """Get available technical indicator types for custom strategies"""
+    return APIResponse(
+        status=StatusEnum.SUCCESS,
+        message="Available indicator types for custom strategies",
+        data={
+            "types": [indicator_type.value for indicator_type in IndicatorType],
+            "descriptions": {
+                "EMA": "Exponential Moving Average - trend following indicator",
+                "SMA": "Simple Moving Average - basic trend indicator", 
+                "RSI": "Relative Strength Index - momentum oscillator (0-100)",
+                "MACD": "Moving Average Convergence Divergence - trend and momentum"
+            },
+            "parameter_formats": {
+                "note": "Parameters can be specified in two ways: nested in 'params' object or directly as fields",
+                "nested_format": {
+                    "EMA": {"name": "EMA_20", "type": "EMA", "params": {"period": 20}},
+                    "SMA": {"name": "SMA_50", "type": "SMA", "params": {"window": 50}},
+                    "RSI": {"name": "RSI_14", "type": "RSI", "params": {"period": 14}},
+                    "MACD": {"name": "MACD_12_26_9", "type": "MACD", "params": {"fast": 12, "slow": 26, "signal": 9}}
+                },
+                "direct_format": {
+                    "EMA": {"name": "EMA_20", "type": "EMA", "period": 20},
+                    "SMA": {"name": "SMA_50", "type": "SMA", "window": 50},
+                    "RSI": {"name": "RSI_14", "type": "RSI", "period": 14},
+                    "MACD": {"name": "MACD_12_26_9", "type": "MACD", "fast": 12, "slow": 26, "signal": 9}
+                }
+            },
+            "usage_examples": {
+                "EMA": {"type": "EMA", "period": 20, "name": "EMA_20"},
+                "SMA": {"type": "SMA", "period": 50, "name": "SMA_50"},
+                "RSI": {"type": "RSI", "period": 14, "name": "RSI_14"},
+                "MACD": {"type": "MACD", "fast": 12, "slow": 26, "signal": 9, "name": "MACD_12_26_9"}
+            }
+        }
+    )
+
+
+@app.get("/periods", response_model=APIResponse)
+async def get_available_periods():
+    """Get available time periods and intervals for backtesting"""
+    return APIResponse(
+        status=StatusEnum.SUCCESS,
+        message="Available time periods and intervals for backtesting",
+        data={
+            "periods": [period.value for period in PeriodEnum],
+            "intervals": [interval.value for interval in IntervalEnum],
+            "descriptions": {
+                "1d": "1 Day - very short-term analysis",
+                "5d": "5 Days - short-term analysis", 
+                "1mo": "1 Month - short-term strategy testing",
+                "3mo": "3 Months - medium-term strategy testing",
+                "6mo": "6 Months - medium-term analysis",
+                "1y": "1 Year - standard backtesting period",
+                "2y": "2 Years - longer-term validation",
+                "5y": "5 Years - comprehensive long-term testing",
+                "10y": "10 Years - extensive historical validation",
+                "ytd": "Year to Date - current year performance",
+                "max": "Maximum Available - full historical data"
+            },
+            "recommended_combinations": {
+                "short_term": {"period": "3mo", "interval": "1d"},
+                "medium_term": {"period": "1y", "interval": "1d"},
+                "long_term": {"period": "5y", "interval": "1d"},
+                "intraday": {"period": "1mo", "interval": "1h"}
+            }
+        }
+    )
+
+
+@app.post("/strategies/validate", response_model=APIResponse)
+async def validate_custom_strategy(strategy: DynamicStrategyDefinition):
     """
-    Validate a complete strategy definition including indicators and rules
+    Validate custom strategy definition before backtesting
     
-    Validates that all indicators exist, rules reference valid indicators, and parameters are correct.
+    Comprehensive validation for custom strategies including indicators, rules, and parameters.
+    Use this before running expensive backtest operations.
     """
     try:
         # Basic validation
         if not strategy.indicators:
-            raise ValueError("Strategy must have at least one indicator")
+            raise ValueError("Custom strategy must have at least one indicator")
         
         # Get indicator names for rule validation
         indicator_names = {ind.name for ind in strategy.indicators}
@@ -652,17 +512,23 @@ async def validate_full_strategy(strategy: DynamicStrategyDefinition):
             if rule['indicator'] not in indicator_names:
                 raise ValueError(f"Threshold rule references unknown indicator: {rule['indicator']}")
         
+        # Check if strategy has any trading rules
+        total_rules = len(strategy.crossover_rules) + len(strategy.threshold_rules)
+        if total_rules == 0:
+            raise ValueError("Custom strategy must have at least one trading rule (crossover or threshold)")
+        
         return APIResponse(
             status=StatusEnum.SUCCESS,
-            message="Strategy definition is valid",
+            message="Custom strategy definition is valid and ready for backtesting",
             data={
                 "strategy": strategy.dict(),
                 "validation_summary": {
                     "indicators_count": len(strategy.indicators),
                     "crossover_rules_count": len(strategy.crossover_rules),
                     "threshold_rules_count": len(strategy.threshold_rules),
-                    "total_rules": len(strategy.crossover_rules) + len(strategy.threshold_rules),
-                    "indicator_names": list(indicator_names)
+                    "total_rules": total_rules,
+                    "indicator_names": list(indicator_names),
+                    "is_ready_for_backtest": True
                 }
             }
         )
@@ -670,7 +536,184 @@ async def validate_full_strategy(strategy: DynamicStrategyDefinition):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Strategy validation failed: {str(e)}"
+            detail=f"Custom strategy validation failed: {str(e)}"
+        )
+
+
+# Ticker management endpoints
+@app.get("/tickers/{symbol}/validate", response_model=APIResponse)
+async def validate_ticker(symbol: str):
+    """
+    Validate if a ticker symbol exists and has sufficient data for backtesting
+    
+    Essential for custom strategy creation - validates ticker before building strategies.
+    """
+    try:
+        symbol = symbol.upper().strip()
+        is_valid = data_service.validate_symbol(symbol)
+        
+        return APIResponse(
+            status=StatusEnum.SUCCESS,
+            message=f"Ticker validation completed for {symbol}",
+            data={
+                "symbol": symbol,
+                "is_valid": is_valid,
+                "status": "ready_for_backtesting" if is_valid else "invalid_or_insufficient_data",
+                "message": f"'{symbol}' is valid and ready for custom strategy backtesting" if is_valid else f"'{symbol}' is invalid or lacks sufficient historical data"
+            }
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Ticker validation failed: {str(e)}"
+        )
+
+
+@app.get("/tickers/{symbol}/info", response_model=APIResponse)
+async def get_ticker_info(symbol: str):
+    """
+    Get detailed information about a stock ticker for custom strategy planning
+    
+    Returns company info, sector, industry, and market data to help with strategy selection.
+    Combines YAML configuration data with live market data.
+    """
+    try:
+        symbol = symbol.upper().strip()
+        
+        # Get basic info from strategy service (live data)
+        info = strategy_service.get_ticker_info(symbol)
+        
+        # Get additional info from YAML configuration if available
+        config_info = ticker_config.get_ticker_by_symbol(symbol)
+        
+        ticker_data = {
+            "ticker_info": info.dict(),
+            "backtesting_readiness": {
+                "symbol": symbol,
+                "suitable_for_custom_strategies": True,
+                "recommended_periods": ["1y", "2y", "5y"],
+                "data_availability": "Historical data available for backtesting"
+            }
+        }
+        
+        # Add configuration data if available
+        if config_info:
+            ticker_data["configuration_info"] = {
+                "in_curated_list": True,
+                "market_cap": config_info.get('market_cap'),
+                "liquidity": config_info.get('liquidity'),
+                "sector": config_info.get('sector'),
+                "recommended_for": "Custom strategy backtesting"
+            }
+        else:
+            ticker_data["configuration_info"] = {
+                "in_curated_list": False,
+                "note": "Ticker not in curated list but may still be valid for backtesting"
+            }
+        
+        return APIResponse(
+            status=StatusEnum.SUCCESS,
+            message=f"Ticker information retrieved for {symbol}",
+            data=ticker_data
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to get ticker info for {symbol}: {str(e)}"
+        )
+
+
+@app.get("/tickers/popular", response_model=APIResponse)
+async def get_popular_tickers():
+    """
+    Get a curated list of popular tickers suitable for custom strategy backtesting
+    
+    Returns commonly traded stocks with good liquidity and historical data coverage.
+    Loads from YAML configuration file for easy maintenance.
+    """
+    try:
+        # Get categories from YAML configuration
+        categories = ticker_config.get_categories()
+        
+        # Transform to match previous API format but with richer data
+        formatted_categories = {}
+        for cat_name, cat_data in categories.items():
+            tickers_list = []
+            for ticker in cat_data.get('tickers', []):
+                tickers_list.append({
+                    "symbol": ticker.get('symbol'),
+                    "name": ticker.get('name'),
+                    "sector": ticker.get('sector'),
+                    "market_cap": ticker.get('market_cap'),
+                    "liquidity": ticker.get('liquidity')
+                })
+            
+            formatted_categories[cat_name] = {
+                "description": cat_data.get('description'),
+                "tickers": tickers_list
+            }
+        
+        # Get metadata and stats
+        metadata = ticker_config.get_metadata()
+        stats = ticker_config.get_stats()
+        
+        return APIResponse(
+            status=StatusEnum.SUCCESS,
+            message="Popular tickers for custom strategy backtesting (from YAML config)",
+            data={
+                "categories": formatted_categories,
+                "total_tickers": stats['total_unique_tickers'],
+                "total_categories": stats['total_categories'],
+                "metadata": metadata,
+                "usage_note": "All listed tickers have been verified for custom strategy backtesting",
+                "recommendation": "Start with large cap stocks or ETFs for more stable backtesting results"
+            }
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to get popular tickers: {str(e)}"
+        )
+
+
+@app.post("/tickers/search", response_model=APIResponse)
+async def search_tickers(request: Dict[str, Any]):
+    """
+    Search for ticker symbols by company name or partial symbol match
+    
+    Helps users find the correct ticker symbol for their custom strategy backtesting.
+    Searches through YAML configuration file.
+    """
+    try:
+        query = request.get('query', '').strip()
+        if not query:
+            raise ValueError("Search query is required")
+        
+        if len(query) < 2:
+            raise ValueError("Search query must be at least 2 characters")
+        
+        # Use ticker configuration to search
+        matches = ticker_config.search_tickers(query)
+        
+        return APIResponse(
+            status=StatusEnum.SUCCESS,
+            message=f"Found {len(matches)} ticker matches for '{query}' (from YAML config)",
+            data={
+                "query": query,
+                "matches": matches,
+                "total_results": len(matches),
+                "search_scope": f"{ticker_config.get_stats()['total_unique_tickers']} configured tickers",
+                "note": "Use /tickers/{symbol}/validate to verify ticker before creating custom strategies"
+            }
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Ticker search failed: {str(e)}"
         )
 
 

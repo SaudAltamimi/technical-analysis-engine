@@ -102,12 +102,12 @@ class YahooFinanceService:
     """Service for fetching stock data from Yahoo Finance"""
     
     @staticmethod
-    def fetch_by_period(request: TickerRequest) -> tuple[pd.Series, DataFetchResult]:
+    def fetch_by_period(request: TickerRequest) -> tuple[pd.Series, pd.DataFrame, DataFetchResult]:
         """
         Fetch stock data for a specific period
         
         Returns:
-            tuple: (price_series, fetch_result)
+            tuple: (price_series, ohlc_df, fetch_result)
         """
         try:
             # Create ticker object
@@ -122,9 +122,12 @@ class YahooFinanceService:
             if hist.empty:
                 raise ValueError(f"No data found for symbol {request.symbol}")
             
-            # Use closing prices
+            # Use closing prices for analysis
             price_series = hist['Close'].copy()
             price_series.name = 'price'
+            
+            # Keep full OHLC data for charting
+            ohlc_df = hist[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
             
             # Create result metadata
             result = DataFetchResult(
@@ -135,18 +138,18 @@ class YahooFinanceService:
                 price_range=(float(price_series.min()), float(price_series.max()))
             )
             
-            return price_series, result
+            return price_series, ohlc_df, result
             
         except Exception as e:
             raise ValueError(f"Failed to fetch data for {request.symbol}: {str(e)}")
     
     @staticmethod
-    def fetch_by_date_range(request: DateRangeRequest) -> tuple[pd.Series, DataFetchResult]:
+    def fetch_by_date_range(request: DateRangeRequest) -> tuple[pd.Series, pd.DataFrame, DataFetchResult]:
         """
         Fetch stock data for a custom date range
         
         Returns:
-            tuple: (price_series, fetch_result)
+            tuple: (price_series, ohlc_df, fetch_result)
         """
         try:
             # Create ticker object
@@ -162,9 +165,12 @@ class YahooFinanceService:
             if hist.empty:
                 raise ValueError(f"No data found for symbol {request.symbol} in the specified date range")
             
-            # Use closing prices
+            # Use closing prices for analysis
             price_series = hist['Close'].copy()
             price_series.name = 'price'
+            
+            # Keep full OHLC data for charting
+            ohlc_df = hist[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
             
             # Create result metadata
             result = DataFetchResult(
@@ -175,7 +181,7 @@ class YahooFinanceService:
                 price_range=(float(price_series.min()), float(price_series.max()))
             )
             
-            return price_series, result
+            return price_series, ohlc_df, result
             
         except Exception as e:
             raise ValueError(f"Failed to fetch data for {request.symbol}: {str(e)}")

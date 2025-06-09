@@ -1,0 +1,20 @@
+# Streamlit App Dependencies - Frontend Only
+# This app communicates with the FastAPI backend via HTTP requests
+
+# Core Streamlit
+streamlit>=1.28.0
+
+# HTTP requests to FastAPI backend
+requests>=2.31.0
+
+# Data handling for UI
+pandas>=2.0.0
+
+# Visualization for charts
+plotly>=5.17.0
+
+# Type hints and validation (lightweight)
+pydantic>=2.0.0
+
+# Date handling
+python-dateutil>=2.8.0 

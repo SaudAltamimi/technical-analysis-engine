@@ -1,13 +1,19 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
 
 [project]
-name = "technical-analysis"
-version = "0.1.0"
-description = "Enhanced technical analysis signal generator with built-in indicators and backtesting capabilities."
+name = "technical-analysis-prod"
+version = "1.0.0"
+description = "Custom Strategy Technical Analysis API & Streamlit Interface"
+authors = [
+    {name = "Technical Analysis Team", email = "dev@example.com"}
+]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
@@ -20,25 +26,19 @@ classifiers = [
 ]
 
 dependencies = [
-    # Core data processing
+    # Core technical analysis engine dependencies
     "pandas>=2.0.0",
     "numpy>=1.24.0",
-    "python-dateutil>=2.8.2",
-    "pytz>=2023.3",
-    # Data fetching
-    "yfinance>=0.2.58",
-    "httpx>=0.24.0",
-    # Configuration and utilities
-    "pydantic>=2.0.0",
-    "pydantic-settings>=2.0.0",
-    "PyYAML>=6.0",
-    "python-dotenv>=1.0.0",
-    "cachetools>=5.5.2",
-    # FastAPI and API dependencies
-    "fastapi>=0.104.0",
-    "uvicorn[standard]>=0.24.0",
-    # Visualization and backtesting
     "vectorbt>=0.25.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+    
+    # Data fetching
+    "yfinance>=0.2.0",
+    "requests>=2.31.0",
+    
+    # Visualization (compatible with vectorbt)
+    "plotly>=5.17.0,<5.20.0",
 ]
 
 [project.scripts]
@@ -47,18 +47,9 @@ technical-analysis-api = "app.main:app"
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0",
-    "ruff>=0.1.0",
+    "pytest>=7.4.0",
+    "httpx>=0.25.0",
     "black>=23.0.0",
-    "mypy>=1.0.0",
-    "jupyter>=1.0.0",
-]
-
-backtesting = [
-    "vectorbt>=0.25.0",
-    "plotly>=5.0.0",
-    "matplotlib>=3.5.0",
-    "scipy>=1.9.0",
 ]
 
 api = [
@@ -66,8 +57,14 @@ api = [
     "uvicorn[standard]>=0.24.0",
 ]
 
+streamlit = [
+    "streamlit>=1.28.0",
+    "requests>=2.31.0",
+    "plotly>=5.17.0",
+]
+
 all = [
-    "technical-analysis[dev,backtesting,api]"
+    "technical-analysis[dev,api]"
 ]
 
 [project.urls]
@@ -84,9 +81,40 @@ target-version = "py311"
 line-length = 88
 
 [tool.black]
-target-version = ["py311"]
 line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+line_length = 88
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+asyncio_mode = "auto"

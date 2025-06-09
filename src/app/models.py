@@ -26,7 +26,7 @@ from config import (
 )
 
 # Import data service models
-from .data_service import PeriodEnum, IntervalEnum, TickerRequest, DateRangeRequest, DataFetchResult
+from data_service import PeriodEnum, IntervalEnum, TickerRequest, DateRangeRequest, DataFetchResult
 
 
 class StatusEnum(str, Enum):
@@ -39,21 +39,66 @@ class DynamicIndicatorDefinition(BaseModel):
     """Indicator definition for API requests with flexible params"""
     name: str = Field(..., pattern=r'^[a-zA-Z][a-zA-Z0-9_]*$', description="Indicator name")
     type: IndicatorType = Field(..., description="Indicator type")
-    params: Dict[str, Any] = Field(..., description="Indicator parameters")
+    params: Optional[Dict[str, Any]] = Field(None, description="Indicator parameters")
+    
+    # Allow direct parameter fields for convenience
+    period: Optional[int] = Field(None, description="Period parameter (convenience field)")
+    window: Optional[int] = Field(None, description="Window parameter (convenience field)")
+    fast: Optional[int] = Field(None, description="Fast period for MACD")
+    slow: Optional[int] = Field(None, description="Slow period for MACD")
+    signal: Optional[int] = Field(None, description="Signal period for MACD")
+    fast_period: Optional[int] = Field(None, description="Fast period (alternative)")
+    slow_period: Optional[int] = Field(None, description="Slow period (alternative)")
+    signal_period: Optional[int] = Field(None, description="Signal period (alternative)")
+    
+    def model_post_init(self, __context) -> None:
+        """Auto-populate params from direct fields if params is empty"""
+        if not self.params:
+            self.params = {}
+        
+        # Collect all parameter fields
+        param_fields = {}
+        if self.period is not None:
+            param_fields['period'] = self.period
+        if self.window is not None:
+            param_fields['window'] = self.window
+        if self.fast is not None:
+            param_fields['fast'] = self.fast
+        if self.slow is not None:
+            param_fields['slow'] = self.slow
+        if self.signal is not None:
+            param_fields['signal'] = self.signal
+        if self.fast_period is not None:
+            param_fields['fast_period'] = self.fast_period
+        if self.slow_period is not None:
+            param_fields['slow_period'] = self.slow_period
+        if self.signal_period is not None:
+            param_fields['signal_period'] = self.signal_period
+        
+        # Merge with existing params (params takes precedence)
+        for key, value in param_fields.items():
+            if key not in self.params:
+                self.params[key] = value
     
     def to_typed_definition(self) -> IndicatorDefinition:
         """Convert to properly typed IndicatorDefinition"""
         if self.type == IndicatorType.EMA:
-            typed_params = EMAConfig(window=self.params.get('window', 20))
+            # Support both 'window' and 'period' parameter names
+            window = self.params.get('window') or self.params.get('period', 20)
+            typed_params = EMAConfig(window=window)
         elif self.type == IndicatorType.SMA:
-            typed_params = SMAConfig(window=self.params.get('window', 20))
+            # Support both 'window' and 'period' parameter names
+            window = self.params.get('window') or self.params.get('period', 20)
+            typed_params = SMAConfig(window=window)
         elif self.type == IndicatorType.RSI:
-            typed_params = RSIConfig(window=self.params.get('window', 14))
+            # Support both 'window' and 'period' parameter names
+            window = self.params.get('window') or self.params.get('period', 14)
+            typed_params = RSIConfig(window=window)
         elif self.type == IndicatorType.MACD:
             typed_params = MACDConfig(
-                fast=self.params.get('fast', 12),
-                slow=self.params.get('slow', 26),
-                signal=self.params.get('signal', 9)
+                fast=self.params.get('fast') or self.params.get('fast_period', 12),
+                slow=self.params.get('slow') or self.params.get('slow_period', 26),
+                signal=self.params.get('signal') or self.params.get('signal_period', 9)
             )
         else:
             # Fallback for unknown types
@@ -145,6 +190,7 @@ class SignalPoint(BaseModel):
     signal: bool = Field(..., description="Signal active/inactive")
     signal_type: SignalType = Field(..., description="Type of signal")
     rule_name: str = Field(..., description="Name of the rule that generated the signal")
+    price: Optional[float] = Field(None, description="Price at which the signal was generated")
     
     class Config:
         json_encoders = {
@@ -164,11 +210,27 @@ class PriceDataPoint(BaseModel):
         }
 
 
+class PricePoint(BaseModel):
+    """OHLC price data point"""
+    timestamp: datetime = Field(..., description="Timestamp")
+    open: float = Field(..., ge=0, description="Opening price")
+    high: float = Field(..., ge=0, description="High price")
+    low: float = Field(..., ge=0, description="Low price")
+    close: float = Field(..., ge=0, description="Closing price")
+    volume: Optional[int] = Field(None, description="Trading volume")
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+
+
 class AnalysisResult(BaseModel):
     """Complete analysis result"""
     strategy_name: str = Field(..., description="Name of the strategy")
     symbol: str = Field(..., description="Stock symbol analyzed")
     data_info: DataFetchResult = Field(..., description="Information about the fetched data")
+    price_data: List[PricePoint] = Field(..., description="OHLC price data for charting")
     indicators: List[IndicatorResult] = Field(..., description="Calculated indicators")
     signals: List[SignalPoint] = Field(..., description="Generated signals")
     entry_signals: List[SignalPoint] = Field(..., description="Entry signals")
@@ -276,6 +338,23 @@ class BacktestResult(BaseModel):
     win_rate: float = Field(..., description="Win rate percentage")
     total_trades: int = Field(..., description="Total number of trades")
     final_value: float = Field(..., description="Final portfolio value")
+
+
+class ComprehensiveBacktestResult(BaseModel):
+    """Comprehensive backtesting results including analysis data"""
+    # Performance metrics from VectorBT
+    performance: BacktestResult = Field(..., description="Core performance metrics from VectorBT")
+    
+    # Full analysis data (indicators, signals, price data)
+    analysis: AnalysisResult = Field(..., description="Complete strategy analysis including indicators and signals")
+    
+    # Additional VectorBT metadata
+    backtest_metadata: Dict[str, Any] = Field(..., description="Additional metadata from VectorBT portfolio")
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
 
 
 class TickerInfo(BaseModel):

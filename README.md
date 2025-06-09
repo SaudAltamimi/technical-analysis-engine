@@ -4,25 +4,40 @@ A professional-grade FastAPI server providing real-time technical analysis for s
 
 ## 🚀 Quick Start
 
-### 1. Install Dependencies
+### 🏗️ Separated Architecture
+This project has **clean separation of concerns**:
+- **Core Engine + API**: Technical analysis engine with FastAPI (uv environment)
+- **Streamlit Frontend**: Standalone web UI (pip environment, separate dependencies)
+
+### 1. Setup Core Engine + API
 ```bash
-uv sync
+# Install core engine with vectorbt + FastAPI dependencies
+make setup
+
+# Start API server
+make api
+# or manually: uvicorn src.app.main:app --host 0.0.0.0 --port 8000
 ```
 
-### 2. Start API Server
+### 2. Setup Streamlit Frontend (Optional, Separate)
 ```bash
-python start_api.py
-# or
-uvicorn src.app.main:app --host 0.0.0.0 --port 8001
+# Install Streamlit app dependencies (separate pip environment)  
+make setup-streamlit
+
+# Start Streamlit frontend
+make streamlit
 ```
 
-### 3. Test API
+### 3. Full Development Setup
 ```bash
-# Run comprehensive tests
-python test_api.py
+# Setup both environments
+make setup && make setup-streamlit
 
-# Or visit interactive docs
-open http://localhost:8001/docs
+# Start both API + Streamlit
+make dev
+
+# Test API
+open http://localhost:8000/docs
 ```
 
 ## 📊 Features
