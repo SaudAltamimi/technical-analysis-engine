@@ -10,18 +10,15 @@ from typing import List, Dict, Any
 from technical_analysis_engine import (
     StrategyEngine, YahooFinanceService, StrategyDefinition, IndicatorDefinition,
     IndicatorType, SignalType, CrossoverDirection, ThresholdCondition, 
-    TickerRequest, DateRangeRequest, PeriodEnum
-)
-from technical_analysis_engine.config import (
+    TickerRequest, DateRangeRequest, PeriodEnum,
     CrossoverRule, ThresholdRule, EMAConfig, RSIConfig, MACDConfig
 )
+# Configuration classes are imported from the main package above
 from technical_analysis_engine.data_service import DataFetchResult
-from technical_analysis_engine.builders import StrategyBuilder
 
 from models import (
     PriceDataPoint, PricePoint, IndicatorResult, IndicatorValuePoint, SignalPoint, 
-    AnalysisResult, BacktestResult, EMAStrategyRequest, MultiEMAStrategyRequest,
-    RSIStrategyRequest, BacktestParams, TickerInfo, DynamicStrategyDefinition, 
+    AnalysisResult, BacktestResult, BacktestParams, TickerInfo, DynamicStrategyDefinition, 
     ComprehensiveBacktestResult
 )
 
@@ -128,36 +125,7 @@ class TechnicalAnalysisService:
         except Exception as e:
             raise ValueError(f"Date range analysis failed: {str(e)}")
     
-    def analyze_strategy(
-        self, 
-        strategy: StrategyDefinition, 
-        price_data: List[PriceDataPoint]
-    ) -> AnalysisResult:
-        """Perform complete technical analysis (legacy method with raw price data)"""
-        
-        # Convert price data to pandas Series
-        price_series = self.price_data_to_series(price_data)
-        
-        # Create mock OHLC DataFrame from price data (all OHLC = Close price)
-        ohlc_df = pd.DataFrame({
-            'Open': price_series,
-            'High': price_series,
-            'Low': price_series,
-            'Close': price_series,
-            'Volume': pd.Series([0] * len(price_series), index=price_series.index)
-        })
-        
-        # Create mock data info for compatibility
-        data_info = DataFetchResult(
-            symbol="CUSTOM",
-            data_points=len(price_series),
-            start_date=price_series.index[0].to_pydatetime(),
-            end_date=price_series.index[-1].to_pydatetime(),
-            price_range=(float(price_series.min()), float(price_series.max()))
-        )
-        
-        # Perform analysis
-        return self._analyze_with_price_series(strategy, price_series, ohlc_df, "CUSTOM", data_info)
+# Removed legacy analyze_strategy method with raw price data - not used by current API endpoints
     
     def _analyze_with_price_series(
         self, 
@@ -302,19 +270,7 @@ class TechnicalAnalysisService:
         except Exception as e:
             raise ValueError(f"Date range backtest failed: {str(e)}")
     
-    def backtest_strategy(
-        self,
-        strategy: StrategyDefinition,
-        price_data: List[PriceDataPoint],
-        params: BacktestParams
-    ) -> BacktestResult:
-        """Perform backtesting (legacy method with raw price data)"""
-        
-        # Convert price data to pandas Series
-        price_series = self.price_data_to_series(price_data)
-        
-        # Perform backtest
-        return self._backtest_with_price_series(strategy, price_series, params)
+# Removed legacy backtest_strategy method with raw price data - not used by current API endpoints
     
     def _backtest_with_price_series(
         self,
@@ -454,142 +410,5 @@ class TechnicalAnalysisService:
         )
 
 
-class StrategyBuilderService:
-    """Service for building common strategies"""
-    
-    def __init__(self):
-        self.data_service = YahooFinanceService()
-    
-    def create_ema_crossover_strategy(self, request: EMAStrategyRequest) -> tuple[StrategyDefinition, TickerRequest]:
-        """Create EMA crossover strategy and return strategy with ticker request"""
-        strategy = StrategyBuilder.ema_crossover(
-            name=request.name,
-            fast_period=request.fast_period,
-            slow_period=request.slow_period
-        )
-        
-        # Update description if provided
-        if request.description:
-            strategy.description = request.description
-        
-        ticker_request = TickerRequest(
-            symbol=request.symbol,
-            period=request.period,
-            interval=request.interval
-        )
-        
-        return strategy, ticker_request
-    
-    def create_multi_ema_strategy(self, request: MultiEMAStrategyRequest) -> tuple[StrategyDefinition, TickerRequest]:
-        """Create multiple EMA strategy with dynamic indicators"""
-        # Sort periods to ensure proper crossover logic
-        sorted_periods = sorted(request.ema_periods)
-        
-        # Create indicators
-        indicators = []
-        for i, period in enumerate(sorted_periods):
-            indicators.append(IndicatorDefinition(
-                name=f"ema_{period}",
-                type=IndicatorType.EMA,
-                params=EMAConfig(window=period)
-            ))
-        
-        # Create crossover rules between consecutive EMAs
-        crossover_rules = []
-        for i in range(len(sorted_periods) - 1):
-            fast_name = f"ema_{sorted_periods[i]}"
-            slow_name = f"ema_{sorted_periods[i + 1]}"
-            
-            # Entry when fast crosses above slow
-            crossover_rules.append(CrossoverRule(
-                name=f"entry_{fast_name}_above_{slow_name}",
-                fast_indicator=fast_name,
-                slow_indicator=slow_name,
-                direction=CrossoverDirection.ABOVE,
-                signal_type=SignalType.ENTRY
-            ))
-            
-            # Exit when fast crosses below slow
-            crossover_rules.append(CrossoverRule(
-                name=f"exit_{fast_name}_below_{slow_name}",
-                fast_indicator=fast_name,
-                slow_indicator=slow_name,
-                direction=CrossoverDirection.BELOW,
-                signal_type=SignalType.EXIT
-            ))
-        
-        strategy = StrategyDefinition(
-            name=request.name,
-            description=request.description or f"Multi-EMA strategy with periods: {request.ema_periods}",
-            indicators=indicators,
-            crossover_rules=crossover_rules,
-            threshold_rules=[]
-        )
-        
-        ticker_request = TickerRequest(
-            symbol=request.symbol,
-            period=request.period,
-            interval=request.interval
-        )
-        
-        return strategy, ticker_request
-    
-    def create_rsi_strategy(self, request: RSIStrategyRequest) -> tuple[StrategyDefinition, TickerRequest]:
-        """Create RSI-based strategy"""
-        # Create RSI indicator
-        rsi_indicator = IndicatorDefinition(
-            name="rsi",
-            type=IndicatorType.RSI,
-            params=RSIConfig(window=request.rsi_period)
-        )
-        
-        # Create threshold rules
-        threshold_rules = [
-            # Entry when RSI crosses above oversold threshold
-            ThresholdRule(
-                name="rsi_entry_oversold",
-                indicator="rsi",
-                threshold=request.oversold_threshold,
-                condition=ThresholdCondition.ABOVE,
-                signal_type=SignalType.ENTRY
-            ),
-            # Exit when RSI crosses above overbought threshold
-            ThresholdRule(
-                name="rsi_exit_overbought",
-                indicator="rsi",
-                threshold=request.overbought_threshold,
-                condition=ThresholdCondition.ABOVE,
-                signal_type=SignalType.EXIT
-            )
-        ]
-        
-        strategy = StrategyDefinition(
-            name=request.name,
-            description=request.description or f"RSI strategy (period: {request.rsi_period}, oversold: {request.oversold_threshold}, overbought: {request.overbought_threshold})",
-            indicators=[rsi_indicator],
-            crossover_rules=[],
-            threshold_rules=threshold_rules
-        )
-        
-        ticker_request = TickerRequest(
-            symbol=request.symbol,
-            period=request.period,
-            interval=request.interval
-        )
-        
-        return strategy, ticker_request
-    
-    def get_ticker_info(self, symbol: str) -> TickerInfo:
-        """Get ticker information"""
-        info = self.data_service.get_ticker_info(symbol)
-        
-        return TickerInfo(
-            symbol=info["symbol"],
-            name=info["name"],
-            sector=info.get("sector"),
-            industry=info.get("industry"),
-            currency=info.get("currency", "USD"),
-            exchange=info.get("exchange"),
-            market_cap=info.get("market_cap"),
-            description=info.get("description")
-        ) 
+# Removed StrategyBuilderService class - its methods are not used by current API endpoints
+# The get_ticker_info functionality is now handled directly by the data_service in main.py

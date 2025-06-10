@@ -3,7 +3,7 @@ Pydantic models for FastAPI application designed for iOS integration
 """
 
 from datetime import datetime
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from enum import Enum
 
@@ -11,11 +11,10 @@ from enum import Enum
 from technical_analysis_engine import (
     IndicatorType, SignalType, CrossoverDirection, ThresholdCondition,
     IndicatorDefinition, StrategyDefinition,
-    PeriodEnum, IntervalEnum, TickerRequest, DateRangeRequest
-)
-from technical_analysis_engine.config import (
+    PeriodEnum, IntervalEnum, TickerRequest, DateRangeRequest,
     CrossoverRule, ThresholdRule, EMAConfig, SMAConfig, RSIConfig, MACDConfig, IndicatorParams
 )
+# Import configuration classes directly from the main package
 from technical_analysis_engine.data_service import DataFetchResult
 
 
@@ -227,69 +226,11 @@ class AnalysisResult(BaseModel):
     exit_signals: List[SignalPoint] = Field(..., description="Exit signals")
 
 
-# New ticker-based request models
-class TickerAnalysisRequest(BaseModel):
-    """Request model for ticker-based technical analysis"""
-    strategy: DynamicStrategyDefinition = Field(..., description="Strategy definition")
-    ticker: TickerRequest = Field(..., description="Ticker and period information")
-
-
-class DateRangeAnalysisRequest(BaseModel):
-    """Request model for date range-based technical analysis"""
-    strategy: DynamicStrategyDefinition = Field(..., description="Strategy definition")
-    ticker: DateRangeRequest = Field(..., description="Ticker and date range information")
-
-
-# Legacy request model (for backward compatibility)
-class AnalysisRequest(BaseModel):
-    """Request model for technical analysis with raw price data"""
-    strategy: DynamicStrategyDefinition = Field(..., description="Strategy definition")
-    price_data: List[PriceDataPoint] = Field(
-        ..., 
-        min_items=1,
-        description="Historical price data"
-    )
-
-
-class CreateIndicatorRequest(BaseModel):
-    """Request to create a single indicator"""
-    name: str = Field(..., pattern=r'^[a-zA-Z][a-zA-Z0-9_]*$', description="Indicator name")
-    type: IndicatorType = Field(..., description="Indicator type")
-    params: Union[EMAConfig, RSIConfig, MACDConfig] = Field(..., description="Indicator parameters")
-
-
-class CreateRuleRequest(BaseModel):
-    """Request to create a trading rule"""
-    rule_type: str = Field(..., description="Type of rule: 'crossover' or 'threshold'")
-    rule_data: Union[CrossoverRule, ThresholdRule] = Field(..., description="Rule configuration")
+# Removed unused request models that are not used by current API endpoints
 
 
 # Updated strategy request models using tickers
-class QuickStrategyRequest(BaseModel):
-    """Base request for creating common strategies quickly with ticker symbols"""
-    name: str = Field(..., description="Strategy name")
-    description: Optional[str] = Field(None, description="Strategy description")
-    symbol: str = Field(..., description="Stock ticker symbol (e.g., AAPL, GOOGL)")
-    period: PeriodEnum = Field(PeriodEnum.ONE_YEAR, description="Time period for analysis")
-    interval: IntervalEnum = Field(IntervalEnum.ONE_DAY, description="Data interval")
-
-
-class EMAStrategyRequest(QuickStrategyRequest):
-    """Request for EMA crossover strategy"""
-    fast_period: int = Field(12, ge=2, le=50, description="Fast EMA period")
-    slow_period: int = Field(26, ge=10, le=200, description="Slow EMA period")
-
-
-class MultiEMAStrategyRequest(QuickStrategyRequest):
-    """Request for multiple EMA strategy"""
-    ema_periods: List[int] = Field(..., min_items=2, max_items=5, description="EMA periods")
-
-
-class RSIStrategyRequest(QuickStrategyRequest):
-    """Request for RSI strategy"""
-    rsi_period: int = Field(14, ge=2, le=100, description="RSI period")
-    oversold_threshold: float = Field(30, ge=0, le=50, description="Oversold threshold")
-    overbought_threshold: float = Field(70, ge=50, le=100, description="Overbought threshold")
+# Removed unused QuickStrategyRequest and its subclasses as they are not used in the API endpoints
 
 
 class BacktestParams(BaseModel):
@@ -312,12 +253,7 @@ class DateRangeBacktestRequest(BaseModel):
     params: BacktestParams = Field(default_factory=BacktestParams, description="Backtest parameters")
 
 
-# Legacy backtest request (for backward compatibility)
-class BacktestRequest(BaseModel):
-    """Request for backtesting with raw price data"""
-    strategy: DynamicStrategyDefinition = Field(..., description="Strategy to backtest")
-    price_data: List[PriceDataPoint] = Field(..., min_items=1, description="Price data")
-    params: BacktestParams = Field(default_factory=BacktestParams, description="Backtest parameters")
+# Removed legacy BacktestRequest model - not used by current API endpoints
 
 
 class BacktestResult(BaseModel):

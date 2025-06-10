@@ -19,9 +19,9 @@ from technical_analysis_engine import (
 from models import (
     APIResponse, ErrorResponse, HealthResponse, StatusEnum,
     TickerBacktestRequest, DateRangeBacktestRequest,
-    DynamicIndicatorDefinition, DynamicStrategyDefinition
+    DynamicIndicatorDefinition, DynamicStrategyDefinition, TickerInfo
 )
-from services import TechnicalAnalysisService, StrategyBuilderService
+from services import TechnicalAnalysisService
 
 # Create FastAPI app
 app = FastAPI(
@@ -43,7 +43,6 @@ app.add_middleware(
 
 # Initialize services
 analysis_service = TechnicalAnalysisService()
-strategy_service = StrategyBuilderService()
 data_service = YahooFinanceService()
 ticker_config = get_ticker_config()
 
@@ -578,8 +577,18 @@ async def get_ticker_info(symbol: str):
     try:
         symbol = symbol.upper().strip()
         
-        # Get basic info from strategy service (live data)
-        info = strategy_service.get_ticker_info(symbol)
+        # Get basic info from data service (live data)
+        info_dict = data_service.get_ticker_info(symbol)
+        info = TickerInfo(
+            symbol=info_dict["symbol"],
+            name=info_dict["name"],
+            sector=info_dict.get("sector"),
+            industry=info_dict.get("industry"),
+            currency=info_dict.get("currency", "USD"),
+            exchange=info_dict.get("exchange"),
+            market_cap=info_dict.get("market_cap"),
+            description=info_dict.get("description")
+        )
         
         # Get additional info from YAML configuration if available
         config_info = ticker_config.get_ticker_by_symbol(symbol)
