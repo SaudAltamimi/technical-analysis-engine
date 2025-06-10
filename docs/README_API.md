@@ -2,23 +2,17 @@
 
 A RESTful API server that exposes the technical analysis engine with **automatic Yahoo Finance data fetching** for easy integration with mobile applications, particularly iOS apps using Swift.
 
-## 🚀 New Ticker-Based Features
+## 🚀 Current API Features
 
 - **📊 Automatic Data Fetching**: Just provide a ticker symbol (e.g., AAPL, GOOGL) - the API fetches data automatically
 - **🎯 Real Market Data**: Uses Yahoo Finance for up-to-date market data
 - **📱 iOS-Optimized**: Perfect for mobile app integration with simple ticker requests
-- **⚡ Fast & Easy**: No need to manage raw price data - just symbols and time periods
-
-## Features
-
-- 🚀 **Dynamic Indicator Creation**: Support for multiple EMA, RSI, and MACD indicators
-- 📊 **Flexible Strategy Building**: Create crossover and threshold-based trading rules
-- 📱 **iOS-Optimized**: API responses designed for easy Swift integration
-- 🔄 **Real-time Analysis**: Calculate indicators and generate signals from Yahoo Finance data
-- 📈 **Backtesting**: Test strategies with performance metrics on real market data
-- ⚡ **Fast Performance**: Built with FastAPI for high-performance async operations
-- 📚 **Auto-documentation**: Interactive API docs with Swagger UI
-- 🎯 **Ticker Validation**: Validate ticker symbols before analysis
+- **⚡ Custom Strategies**: Build flexible strategies with multiple indicators and rules
+- **🔄 Real-time Analysis**: Calculate indicators and generate signals from Yahoo Finance data
+- **📈 Backtesting**: Test strategies with performance metrics on real market data
+- **⚡ Fast Performance**: Built with FastAPI for high-performance async operations
+- **📚 Auto-documentation**: Interactive API docs with Swagger UI
+- **🎯 Ticker Tools**: Validation, search, and recommendation features
 
 ## Quick Start
 
@@ -40,8 +34,8 @@ pip install -e ".[all]"
 # Using uvicorn directly
 uvicorn src.app.main:app --host 0.0.0.0 --port 8000 --reload
 
-# Or using the startup script
-python start_api.py
+# Or using make command
+make api
 ```
 
 ### 3. Access the API
@@ -52,7 +46,9 @@ python start_api.py
 
 ## API Endpoints
 
-### Health Check
+### Core Endpoints
+
+#### Health Check
 
 ```http
 GET /health
@@ -60,156 +56,169 @@ GET /health
 
 Check if the API is running and healthy.
 
-### 🎯 Ticker-Based Analysis (Recommended)
-
-#### Quick EMA Strategy
+#### Root Endpoint
 
 ```http
-POST /strategies/ema-crossover
+GET /
 ```
 
-Create and analyze an EMA crossover strategy with real market data.
+Get API information and welcome message.
 
-**Example Request:**
-```json
-{
-  "name": "Apple EMA Strategy",
-  "description": "12/26 EMA crossover for AAPL",
-  "symbol": "AAPL",
-  "period": "1y",
-  "interval": "1d",
-  "fast_period": 12,
-  "slow_period": 26
-}
-```
+### 🎯 Strategy Creation and Analysis
 
-**Example Response:**
-```json
-{
-  "status": "success",
-  "message": "EMA crossover strategy created and analyzed for AAPL",
-  "data": {
-    "analysis": {
-      "strategy_name": "Apple EMA Strategy",
-      "symbol": "AAPL",
-      "data_info": {
-        "symbol": "AAPL",
-        "data_points": 252,
-        "start_date": "2023-01-01T00:00:00",
-        "end_date": "2024-01-01T00:00:00",
-        "price_range": [150.25, 198.75]
-      },
-      "indicators": [...],
-      "entry_signals": [...],
-      "exit_signals": [...]
-    }
-  }
-}
-```
-
-#### Multiple EMA Strategy
+#### Custom Strategy Creation
 
 ```http
-POST /strategies/multi-ema
+POST /strategies/custom
 ```
 
-Create a strategy with multiple EMA indicators and dynamic crossover rules.
-
-**Example Request:**
-```json
-{
-  "name": "Google Triple EMA",
-  "description": "5/20/50 EMA multiple crossovers",
-  "symbol": "GOOGL",
-  "period": "2y",
-  "interval": "1d",
-  "ema_periods": [5, 20, 50]
-}
-```
-
-#### RSI Strategy
-
-```http
-POST /strategies/rsi
-```
-
-Create an RSI-based strategy with overbought/oversold thresholds.
-
-**Example Request:**
-```json
-{
-  "name": "Tesla RSI Strategy",
-  "description": "RSI 30/70 strategy",
-  "symbol": "TSLA",
-  "period": "6mo",
-  "interval": "1d",
-  "rsi_period": 14,
-  "oversold_threshold": 30,
-  "overbought_threshold": 70
-}
-```
-
-### 📈 Advanced Ticker Analysis
-
-#### Custom Analysis with Ticker
-
-```http
-POST /analyze/ticker
-```
-
-Perform custom technical analysis using ticker symbol.
+Create and analyze a custom strategy with multiple indicators and rules.
 
 **Example Request:**
 ```json
 {
   "strategy": {
-    "name": "Custom Strategy",
-    "description": "Custom indicators with MSFT",
+    "name": "EMA_RSI_Strategy",
+    "description": "EMA crossover with RSI filter",
     "indicators": [
       {
-        "name": "ema_fast",
+        "name": "EMA_12",
         "type": "EMA",
         "params": {"window": 12}
       },
       {
-        "name": "ema_slow",
+        "name": "EMA_26", 
         "type": "EMA",
+        "params": {"window": 26}
+      },
+      {
+        "name": "RSI_14",
+        "type": "RSI",
+        "params": {"window": 14}
+      }
+    ],
+    "crossover_rules": [
+      {
+        "name": "EMA_Entry",
+        "fast_indicator": "EMA_12",
+        "slow_indicator": "EMA_26",
+        "direction": "above",
+        "signal_type": "entry"
+      }
+    ],
+    "threshold_rules": [
+      {
+        "name": "RSI_Filter",
+        "indicator": "RSI_14",
+        "threshold": 70,
+        "condition": "below",
+        "signal_type": "entry"
+      }
+    ]
+  },
+  "ticker_request": {
+    "symbol": "AAPL",
+    "period": "6mo"
+  }
+}
+```
+
+#### Strategy Validation
+
+```http
+POST /strategies/validate
+```
+
+Validate a strategy configuration without executing it.
+
+**Example Request:**
+```json
+{
+  "name": "Test Strategy",
+  "indicators": [
+    {
+      "name": "EMA_12",
+      "type": "EMA", 
+      "params": {"window": 12}
+    }
+  ],
+  "crossover_rules": [],
+  "threshold_rules": []
+}
+```
+
+### 📊 Backtesting
+
+#### Ticker-Based Backtesting
+
+```http
+POST /backtest/custom/ticker
+```
+
+Backtest a strategy using ticker symbol and period.
+
+**Example Request:**
+```json
+{
+  "strategy": {
+    "name": "EMA Crossover Strategy",
+    "description": "12/26 EMA crossover backtest",
+    "indicators": [
+      {
+        "name": "EMA_12",
+        "type": "EMA",
+        "params": {"window": 12}
+      },
+      {
+        "name": "EMA_26",
+        "type": "EMA", 
         "params": {"window": 26}
       }
     ],
     "crossover_rules": [
       {
-        "name": "ema_cross_entry",
-        "fast_indicator": "ema_fast",
-        "slow_indicator": "ema_slow",
+        "name": "EMA_Entry",
+        "fast_indicator": "EMA_12",
+        "slow_indicator": "EMA_26",
         "direction": "above",
         "signal_type": "entry"
+      },
+      {
+        "name": "EMA_Exit",
+        "fast_indicator": "EMA_12",
+        "slow_indicator": "EMA_26", 
+        "direction": "below",
+        "signal_type": "exit"
       }
     ],
     "threshold_rules": []
   },
-  "ticker": {
-    "symbol": "MSFT",
-    "period": "1y",
-    "interval": "1d"
+  "ticker_request": {
+    "symbol": "AAPL",
+    "period": "1y"
   }
 }
 ```
 
-#### Custom Date Range Analysis
+#### Date Range Backtesting
 
 ```http
-POST /analyze/date-range
+POST /backtest/custom/date-range
 ```
 
-Analyze with specific start and end dates.
+Backtest a strategy with specific start and end dates.
 
 **Example Request:**
 ```json
 {
-  "strategy": { /* strategy definition */ },
-  "ticker": {
-    "symbol": "NVDA",
+  "strategy": {
+    "name": "Custom Date Range Strategy",
+    "indicators": [/* ... */],
+    "crossover_rules": [/* ... */],
+    "threshold_rules": [/* ... */]
+  },
+  "date_range_request": {
+    "symbol": "MSFT",
     "start_date": "2023-01-01T00:00:00Z",
     "end_date": "2023-12-31T23:59:59Z",
     "interval": "1d"
@@ -217,49 +226,27 @@ Analyze with specific start and end dates.
 }
 ```
 
-### 📊 Backtesting with Tickers
+### 🎯 Ticker Management
 
-#### Ticker Backtesting
+#### Validate Ticker
 
 ```http
-POST /backtest/ticker
+GET /tickers/{symbol}/validate
 ```
 
-Backtest a strategy using real market data.
-
-**Example Request:**
-```json
-{
-  "strategy": { /* strategy definition */ },
-  "ticker": {
-    "symbol": "AMZN",
-    "period": "2y",
-    "interval": "1d"
-  },
-  "params": {
-    "initial_cash": 10000,
-    "commission": 0.001
-  }
-}
-```
+Check if a ticker symbol is valid and has data.
 
 **Example Response:**
 ```json
 {
-  "status": "success",
-  "message": "Backtest completed for AMZN",
+  "status": "success", 
   "data": {
-    "total_return": 0.15,
-    "sharpe_ratio": 1.2,
-    "max_drawdown": -0.08,
-    "win_rate": 0.65,
-    "total_trades": 25,
-    "final_value": 11500.0
+    "symbol": "AAPL",
+    "is_valid": true,
+    "message": "Symbol is valid and has data"
   }
 }
 ```
-
-### 🎯 Ticker Information
 
 #### Get Ticker Info
 
@@ -274,39 +261,105 @@ Get detailed information about a stock ticker.
 {
   "status": "success",
   "data": {
-    "symbol": "AAPL",
-    "name": "Apple Inc.",
-    "sector": "Technology",
-    "industry": "Consumer Electronics",
+    "symbol": "TSLA",
+    "longName": "Tesla, Inc.",
+    "sector": "Consumer Cyclical",
+    "industry": "Auto Manufacturers", 
+    "country": "United States",
     "currency": "USD",
-    "exchange": "NASDAQ",
-    "market_cap": 3000000000000,
-    "description": "Apple Inc. designs, manufactures, and markets smartphones..."
+    "exchange": "NASDAQ NMS - GLOBAL MARKET",
+    "marketCap": 789000000000,
+    "description": "Tesla, Inc. designs, develops, manufactures, leases, and sells electric vehicles..."
   }
 }
 ```
 
-#### Validate Ticker
+#### Popular Tickers
 
 ```http
-GET /tickers/{symbol}/validate
+GET /tickers/popular
 ```
 
-Check if a ticker symbol is valid and has data.
+Get a curated list of popular stock tickers.
+
+#### Search Tickers
+
+```http
+POST /tickers/search
+```
+
+Search for tickers by name or symbol.
+
+**Example Request:**
+```json
+{
+  "query": "apple",
+  "limit": 10
+}
+```
+
+#### Ticker Recommendations
+
+```http
+GET /tickers/recommendations/{strategy_type}
+```
+
+Get recommended tickers for specific strategy types.
+
+**Strategy Types:**
+- `trending` - Currently trending stocks
+- `volume` - High volume stocks  
+- `volatile` - Volatile stocks good for technical analysis
+- `stable` - Stable blue-chip stocks
+
+#### Ticker Configuration Stats
+
+```http
+GET /tickers/config/stats
+```
+
+Get statistics about the ticker configuration and available symbols.
+
+### 🛠️ Utility Endpoints
+
+#### Indicator Types
+
+```http
+GET /indicators/types
+```
+
+Get available indicator types and their parameters.
 
 **Example Response:**
 ```json
 {
   "status": "success",
   "data": {
-    "symbol": "AAPL",
-    "is_valid": true,
-    "message": "Symbol is valid and has data"
+    "indicators": [
+      {
+        "type": "EMA",
+        "name": "Exponential Moving Average",
+        "params": ["window"]
+      },
+      {
+        "type": "RSI", 
+        "name": "Relative Strength Index",
+        "params": ["window"]
+      },
+      {
+        "type": "MACD",
+        "name": "Moving Average Convergence Divergence", 
+        "params": ["fast_window", "slow_window", "signal_window"]
+      },
+      {
+        "type": "SMA",
+        "name": "Simple Moving Average",
+        "params": ["window"]
+      }
+    ]
   }
 }
 ```
-
-### 🛠️ Utility Endpoints
 
 #### Available Periods
 
@@ -314,7 +367,7 @@ Check if a ticker symbol is valid and has data.
 GET /periods
 ```
 
-Get available time periods and intervals.
+Get available time periods and intervals for Yahoo Finance data.
 
 **Example Response:**
 ```json
@@ -324,21 +377,14 @@ Get available time periods and intervals.
     "periods": ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"],
     "intervals": ["1m", "5m", "15m", "30m", "1h", "1d", "1wk", "1mo"],
     "descriptions": {
-      "1y": "1 Year",
-      "1d": "1 Day",
-      "6mo": "6 Months"
+      "1y": "1 Year of data",
+      "6mo": "6 Months of data", 
+      "1d": "1 Day of data",
+      "max": "All available data"
     }
   }
 }
 ```
-
-#### Indicator Types
-
-```http
-GET /indicators/types
-```
-
-Get available indicator types.
 
 ## iOS Integration
 
@@ -347,39 +393,58 @@ Get available indicator types.
 The API is designed to work seamlessly with Swift's `Codable` protocol:
 
 ```swift
-struct EMAStrategyRequest: Codable {
-    let name: String
-    let description: String?
-    let symbol: String
-    let period: Period
-    let interval: Interval
-    let fastPeriod: Int
-    let slowPeriod: Int
+struct CustomStrategyRequest: Codable {
+    let strategy: StrategyDefinition
+    let tickerRequest: TickerRequest
     
     enum CodingKeys: String, CodingKey {
-        case name, description, symbol, period, interval
-        case fastPeriod = "fast_period"
-        case slowPeriod = "slow_period"
+        case strategy
+        case tickerRequest = "ticker_request"
     }
+}
+
+struct StrategyDefinition: Codable {
+    let name: String
+    let description: String?
+    let indicators: [IndicatorDefinition]
+    let crossoverRules: [CrossoverRule]
+    let thresholdRules: [ThresholdRule]
+    
+    enum CodingKeys: String, CodingKey {
+        case name, description, indicators
+        case crossoverRules = "crossover_rules"
+        case thresholdRules = "threshold_rules"
+    }
+}
+
+struct IndicatorDefinition: Codable {
+    let name: String
+    let type: IndicatorType
+    let params: [String: Int]
+}
+
+enum IndicatorType: String, Codable, CaseIterable {
+    case EMA, RSI, MACD, SMA
+}
+
+struct TickerRequest: Codable {
+    let symbol: String
+    let period: Period
+    let interval: Interval?
 }
 
 enum Period: String, Codable, CaseIterable {
     case oneDay = "1d"
+    case fiveDays = "5d"
     case oneMonth = "1mo"
+    case threeMonths = "3mo"
     case sixMonths = "6mo"
     case oneYear = "1y"
     case twoYears = "2y"
     case fiveYears = "5y"
+    case tenYears = "10y"
+    case ytd = "ytd"
     case max = "max"
-}
-
-struct AnalysisResult: Codable {
-    let strategyName: String
-    let symbol: String
-    let dataInfo: DataFetchResult
-    let indicators: [IndicatorResult]
-    let entrySignals: [SignalPoint]
-    let exitSignals: [SignalPoint]
 }
 ```
 
@@ -389,45 +454,82 @@ struct AnalysisResult: Codable {
 class TechnicalAnalysisAPI {
     private let baseURL = "http://localhost:8000"
     
-    func analyzeStock(symbol: String, period: Period) async throws -> AnalysisResult {
-        let request = EMAStrategyRequest(
+    func createCustomStrategy(symbol: String, period: Period) async throws -> APIResponse {
+        let strategy = StrategyDefinition(
             name: "iOS EMA Strategy",
-            description: "EMA analysis from iOS app",
-            symbol: symbol,
-            period: period,
-            interval: .oneDay,
-            fastPeriod: 12,
-            slowPeriod: 26
+            description: "EMA crossover from iOS app",
+            indicators: [
+                IndicatorDefinition(name: "EMA_12", type: .EMA, params: ["window": 12]),
+                IndicatorDefinition(name: "EMA_26", type: .EMA, params: ["window": 26])
+            ],
+            crossoverRules: [
+                CrossoverRule(
+                    name: "EMA_Entry",
+                    fastIndicator: "EMA_12",
+                    slowIndicator: "EMA_26", 
+                    direction: "above",
+                    signalType: "entry"
+                )
+            ],
+            thresholdRules: []
         )
         
-        // Make API call and return analysis result
-        return try await createEMAStrategy(request: request)
+        let request = CustomStrategyRequest(
+            strategy: strategy,
+            tickerRequest: TickerRequest(symbol: symbol, period: period, interval: nil)
+        )
+        
+        return try await postRequest(endpoint: "/strategies/custom", data: request)
+    }
+    
+    func validateTicker(_ symbol: String) async throws -> Bool {
+        let response = try await getRequest(endpoint: "/tickers/\(symbol)/validate")
+        return response.data["is_valid"] as? Bool ?? false
     }
 }
 
 // Usage in SwiftUI
 @State private var selectedSymbol = "AAPL"
 @State private var selectedPeriod = Period.oneYear
+@State private var isAnalyzing = false
 
-Button("Analyze Stock") {
+Button("Create Strategy") {
     Task {
-        let result = try await api.analyzeStock(
-            symbol: selectedSymbol, 
-            period: selectedPeriod
-        )
-        // Update UI with results
+        isAnalyzing = true
+        defer { isAnalyzing = false }
+        
+        do {
+            // Validate ticker first
+            let isValid = try await api.validateTicker(selectedSymbol)
+            guard isValid else {
+                // Show error
+                return
+            }
+            
+            // Create strategy
+            let result = try await api.createCustomStrategy(
+                symbol: selectedSymbol,
+                period: selectedPeriod
+            )
+            
+            // Update UI with results
+        } catch {
+            // Handle error
+        }
     }
 }
+.disabled(isAnalyzing)
 ```
 
 ### Complete iOS Integration
 
-See `examples/ios_integration.swift` for a complete iOS app example with:
-- Ticker validation
-- Real-time data fetching
-- Multiple strategy types
-- SwiftUI interface
-- Error handling
+See `/docs/README_iOS.md` for a complete iOS integration guide with:
+- Complete Swift API client
+- All data models with proper CodingKeys
+- SwiftUI integration examples  
+- Chart integration with Swift Charts
+- Unit testing examples
+- Production deployment considerations
 
 ## Supported Time Periods
 
@@ -504,63 +606,70 @@ Common error scenarios:
 ### Running in Development Mode
 
 ```bash
-# Install in development mode
-pip install -e ".[dev,api]"
+# Install dependencies
+make setup
 
-# Start with auto-reload
+# Start API server
+make api
+
+# Or start with custom settings
 uvicorn src.app.main:app --reload --host 0.0.0.0 --port 8000
-
-# Or use the startup script
-python start_api.py
 ```
 
 ### Testing
 
 ```bash
-# Run comprehensive tests with real ticker data
-python test_api.py
-
-# Test specific endpoints
+# Test basic endpoints
 curl -X GET "http://localhost:8000/health"
-curl -X GET "http://localhost:8000/tickers/AAPL/info"
+curl -X GET "http://localhost:8000/indicators/types"
 curl -X GET "http://localhost:8000/tickers/AAPL/validate"
+curl -X GET "http://localhost:8000/tickers/TSLA/info"
+
+# Test strategy creation
+curl -X POST "http://localhost:8000/strategies/custom" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "strategy": {
+      "name": "Test Strategy",
+      "indicators": [
+        {"name": "EMA_12", "type": "EMA", "params": {"window": 12}}
+      ],
+      "crossover_rules": [],
+      "threshold_rules": []
+    },
+    "ticker_request": {
+      "symbol": "AAPL",
+      "period": "6mo"
+    }
+  }'
 ```
 
-### Example Test Results
 
-```
-🧪 Starting Technical Analysis API Tests with Ticker Integration
-======================================================================
-🔍 Testing health check...
-✅ Health check passed
 
-🔍 Testing ticker validation...
-✅ AAPL: Valid (as expected)
-✅ GOOGL: Valid (as expected)
-✅ INVALID: Invalid (as expected)
+## API Response Format
 
-🔍 Testing EMA crossover strategy with ticker...
-✅ EMA strategy test passed
-📊 Symbol: AAPL
-📈 Data points: 252
-📅 Period: 2023-01-01 to 2024-01-01
-💰 Price range: $150.25 - $198.75
-🚦 Entry signals: 4
-🛑 Exit signals: 3
+All API endpoints return responses in a consistent format:
 
-======================================================================
-📊 Test Results: 10/10 tests passed
-🎉 All tests passed! Ticker-based API is working correctly.
+**Success Response:**
+```json
+{
+  "status": "success",
+  "message": "Operation completed successfully",
+  "data": {
+    // Response data here
+  }
+}
 ```
 
-## Legacy Endpoints
-
-For backward compatibility, the original endpoints are still available:
-
-- `POST /analyze` - Analysis with raw price data ⚠️ **Deprecated**
-- `POST /backtest` - Backtesting with raw price data ⚠️ **Deprecated**
-
-New applications should use the ticker-based endpoints instead.
+**Error Response:**
+```json
+{
+  "status": "error", 
+  "message": "Error description",
+  "error_code": "ERROR_TYPE",
+  "timestamp": "2024-01-01T12:00:00Z"
+}
+```
 
 ## Production Deployment
 
@@ -625,24 +734,7 @@ CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ## Examples
 
-### Quick Start Example
 
-```bash
-# Start the server
-python start_api.py
-
-# Test with a simple request
-curl -X POST "http://localhost:8000/strategies/ema-crossover" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Apple EMA Test",
-    "symbol": "AAPL",
-    "period": "1y",
-    "interval": "1d",
-    "fast_period": 12,
-    "slow_period": 26
-  }'
-```
 
 ### iOS App Integration
 
