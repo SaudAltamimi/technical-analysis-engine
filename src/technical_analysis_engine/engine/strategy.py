@@ -87,9 +87,10 @@ class StrategyEngine:
         if not entry_rules:
             return pd.Series(False, index=list(signals.values())[0].index)
         
+        # Use AND logic for entry signals (all conditions must be met)
         combined = signals[entry_rules[0]]
         for rule_name in entry_rules[1:]:
-            combined = combined | signals[rule_name]
+            combined = combined & signals[rule_name]
         
         return combined
     
