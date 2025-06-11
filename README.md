@@ -40,6 +40,17 @@ Access Streamlit interface at `http://localhost:8501`
 curl http://localhost:8000/health
 
 # Create custom strategy
+# Strategy Structure Explanation:
+# The API uses a two-step approach for maximum flexibility:
+#
+# 1. "indicators" section - Define which technical indicators to calculate
+#    Each indicator gets a unique name (e.g., "EMA_12", "EMA_26") that you choose
+#    
+# 2. "crossover_rules" section - Define trading logic using the indicator names
+#    Rules reference indicators by their names: "fast_indicator": "EMA_12", "slow_indicator": "EMA_26"
+#    
+# This design allows multiple rules to reuse the same indicators and makes strategies more readable
+
 curl -X POST http://localhost:8000/strategies/custom \
   -H "Content-Type: application/json" \
   -d '{
@@ -54,6 +65,124 @@ curl -X POST http://localhost:8000/strategies/custom \
     ],
     "period": "6mo"
   }'
+
+# Response:
+{
+  "status": "success",
+  "message": "Custom strategy 'EMA_Cross' created and analyzed for AAPL",
+  "data": {
+    "strategy": {
+      "name": "EMA_Cross",
+      "description": "",
+      "indicators": [
+        {
+          "name": "EMA_12",
+          "type": "EMA",
+          "params": {"window": 12}
+        },
+        {
+          "name": "EMA_26", 
+          "type": "EMA",
+          "params": {"window": 26}
+        }
+      ],
+      "crossover_rules": [
+        {
+          "name": "entry",
+          "fast_indicator": "EMA_12",
+          "slow_indicator": "EMA_26",
+          "direction": "above",
+          "signal_type": "entry"
+        }
+      ],
+      "threshold_rules": []
+    },
+    "analysis": {
+      "strategy_name": "EMA_Cross",
+      "symbol": "AAPL",
+      "data_info": {
+        "symbol": "AAPL",
+        "data_points": 130,
+        "start_date": "2024-12-11T00:00:00-05:00",
+        "end_date": "2025-06-10T00:00:00-04:00",
+        "period": "6mo",
+        "interval": "1d"
+      },
+      "price_data": [
+        {
+          "timestamp": "2024-12-27T00:00:00-05:00",
+          "open": 263.0,
+          "high": 263.54,
+          "low": 262.11,
+          "close": 263.0,
+          "volume": 17296100
+        }
+        // ... additional OHLC data points for charting
+      ],
+      "indicators": [
+        {
+          "name": "EMA_12",
+          "type": "EMA",
+          "params": {"window": 12},
+          "values": [
+            {"timestamp": "2024-12-27T00:00:00-05:00", "value": 252.58},
+            {"timestamp": "2024-12-30T00:00:00-05:00", "value": 252.42}
+            // ... complete EMA_12 time series
+          ]
+        },
+        {
+          "name": "EMA_26",
+          "type": "EMA", 
+          "params": {"window": 26},
+          "values": [
+            {"timestamp": "2025-01-21T00:00:00-05:00", "value": 240.64},
+            {"timestamp": "2025-01-22T00:00:00-05:00", "value": 239.36}
+            // ... complete EMA_26 time series
+          ]
+        }
+      ],
+      "signals": [
+        {
+          "timestamp": "2025-02-18T00:00:00-05:00",
+          "signal": true,
+          "signal_type": "entry",
+          "rule_name": "entry",
+          "price": 244.15
+        },
+        {
+          "timestamp": "2025-05-15T00:00:00-04:00",
+          "signal": true,
+          "signal_type": "entry",
+          "rule_name": "entry",
+          "price": 211.45
+        }
+      ],
+      "entry_signals": [
+        {
+          "timestamp": "2025-02-18T00:00:00-05:00",
+          "signal": true,
+          "signal_type": "entry",
+          "rule_name": "combined_entry",
+          "price": 244.15
+        },
+        {
+          "timestamp": "2025-05-15T00:00:00-04:00",
+          "signal": true,
+          "signal_type": "entry",
+          "rule_name": "combined_entry", 
+          "price": 211.45
+        }
+      ],
+      "exit_signals": []
+    },
+    "rules_summary": {
+      "crossover_rules": 1,
+      "threshold_rules": 0,
+      "total_rules": 1
+    }
+  },
+  "timestamp": "2025-06-11T08:14:45.126328"
+}
 
 # Backtest strategy
 curl -X POST http://localhost:8000/backtest/custom/ticker \
